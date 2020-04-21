@@ -1,96 +1,10 @@
 import datetime
-import enum
 import uuid
 from dataclasses import dataclass, field
-from typing import Optional, List, Generator, Dict
+from typing import Optional, Generator, Dict
 
 
-class TimeOfDay(enum.Enum):
-    """Enum value of AM/PM"""
-
-    AM = 0
-    PM = 1
-
-    @property
-    def phase_adjustment(self) -> int:
-        """
-        The amount we need to adjust the phase index by when calculating the phase
-        number from a date.
-        """
-        if self is TimeOfDay.AM:
-            return 0
-        return 1
-
-    @classmethod
-    def from_str(cls, value: str) -> "TimeOfDay":
-        if value.upper() == "AM":
-            return cls.AM
-        else:
-            return cls.PM
-
-    @classmethod
-    def from_phase_index(cls, phase_index: int) -> "TimeOfDay":
-        if phase_index % 2 == 0:
-            return cls.AM
-        else:
-            return cls.PM
-
-
-class Patterns(enum.Enum):
-    """Possible pattern names."""
-
-    RANDOM = "random"
-    DECREASING = "decreasing"
-    SMALL_SPIKE = "small spike"
-    BIG_SPIKE = "big spike"
-
-
-@dataclass
-class User:
-    """Holds information about the user."""
-
-    id: uuid.UUID
-    """Unique id for the user"""
-    discord_id: int
-    """Discord id of the user"""
-    timezone: Optional[datetime.tzinfo] = None
-    """Timezone the user is in"""
-    servers: List[int] = field(default_factory=list)
-    """A list of servers this user is a part of"""
-
-
-@dataclass
-class Purchase:
-    """Information about turnips purchased"""
-
-    user_id: uuid.UUID
-    """Id of user that made the sale."""
-    market: uuid.UUID
-    """User id for the island the sale was made."""
-    unit_price: int
-    """Price of an individual turnip."""
-    units: int
-    """Number of turnips purchased in this transaction."""
-    investment_total: int
-    """Total number of bells invested in this transaction."""
-
-
-@dataclass
-class Sale:
-    user_id: uuid.UUID
-    """User who made the sale."""
-    sale_date: datetime.date
-    """Date of sale."""
-    sale_time_of_day: TimeOfDay
-    """Sale period of sale."""
-    sale_price: int
-    """The price per turnip of the sale."""
-    units: int
-    """The number of turnips sold."""
-    revenue: int
-    """Bells received for this sale."""
-    sale_market: Optional[uuid.UUID] = None
-    """The user ID of the island the sale was made on."""
+from .enums import TimeOfDay, Patterns
 
 
 @dataclass

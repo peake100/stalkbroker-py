@@ -1,13 +1,10 @@
-import grahamcracker
 import marshmallow
 import datetime
 import pytz
-from typing import Any, Optional, Mapping, Dict, Type, Union
+from typing import Optional, Mapping, Any
+
 
 from stalkbroker import models
-
-_HandlerType = Union[marshmallow.fields.Field, marshmallow.Schema]
-_TYPE_HANDLERS: Dict[Type[Any], Type[_HandlerType]] = dict()
 
 
 class TzField(marshmallow.fields.Field):
@@ -71,22 +68,3 @@ class PatternsField(marshmallow.fields.Field):
             return value
 
         return models.Patterns(value)
-
-
-_TYPE_HANDLERS[datetime.tzinfo] = TzField
-_TYPE_HANDLERS[datetime.date] = DateField
-_TYPE_HANDLERS[models.Patterns] = PatternsField
-
-
-@grahamcracker.schema_for(models.User, type_handlers=_TYPE_HANDLERS)
-class UserSchema(grahamcracker.DataSchema[models.User]):
-    """Schema for serializing and deserializing user data"""
-
-    pass
-
-
-@grahamcracker.schema_for(models.Ticker, type_handlers=_TYPE_HANDLERS)
-class TickerSchema(grahamcracker.DataSchema[models.Ticker]):
-    """Schema for serializing and deserializing user data"""
-
-    pass

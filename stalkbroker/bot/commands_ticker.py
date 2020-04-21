@@ -3,7 +3,7 @@ import re
 from typing import Union, Optional, Dict, Any, Tuple
 
 from .bot import STALKBROKER, DB_CONNECTION
-from stalkbroker import dates, formatting, schemas, errors
+from stalkbroker import date_utils, formatting, schemas, errors
 
 
 _IMPORT_HELPER = None
@@ -23,30 +23,36 @@ async def update_ticker(
     am_pm: Optional[str],
     date: Optional[str],
 ) -> None:
+    """updates a ticker for the given price period"""
+
     message: discord.Message = ctx.message
     user = await DB_CONNECTION.fetch_user(message.author.id, message.guild.id)
 
+    # If we don't know the users timezone, raise a UnknownUserTimezoneError, and
+    # our error handler will take care of the rest
     if user.timezone is None:
         raise errors.UnknownUserTimezoneError
 
-    time_of_day = dates.deduce_am_pm(message, user.timezone, am_pm)
-    date_local = dates.deduce_date(message, user.timezone, date)
+    time_of_day = date_utils.deduce_am_pm(message, user.timezone, am_pm)
+    date_local = date_utils.deduce_date(message, user.timezone, date)
 
-    week_of = dates.previous_sunday(date_local)
+    week_of = date_utils.previous_sunday(date_local)
     await DB_CONNECTION.update_ticker(user, week_of, date_local, time_of_day, price)
 
+    # If this isn't a sunday, then we are updating a sell price
     if date_local.weekday() != 6:
         response = formatting.form_response(
             header="THE MARKET IS MOVING!!!",
             info={
                 "Market": ctx.author.display_name,
-                "Nooks' Offer": f"{price} <:bells:691383087241887785>",
+                "Nooks' Offer": f"{price} {ctx.guild}",
                 "Date": date_local,
                 "Period": time_of_day.name,
                 "Memo": "401K through the vegetable way",
             },
         )
     else:
+        # Otherwise we are updating the
         response = formatting.form_response(
             header="INVESTMENT OPPORTUNITY AVAILABLE!!!",
             info={
@@ -75,11 +81,11 @@ async def fetch_ticker(ctx: discord.ext.commands.Context, date: Optional[str]) -
     if broker_user.timezone is None:
         raise errors.UnknownUserTimezoneError("User timezone has not been set.")
 
-    local_request_date = dates.deduce_date(
+    local_request_date = date_utils.deduce_date(
         message, user_tz=broker_user.timezone, date_arg=date
     )
 
-    week_of = dates.previous_sunday(local_request_date)
+    week_of = date_utils.previous_sunday(local_request_date)
     user_ticker = await DB_CONNECTION.fetch_ticker(broker_user, week_of)
 
     response_info: Dict[str, Any] = {

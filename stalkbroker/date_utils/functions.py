@@ -9,6 +9,10 @@ from stalkbroker import models
 ONE_DAY: datetime.timedelta = datetime.timedelta(days=1)
 
 
+def serialize_date(date: datetime.date) -> datetime.datetime:
+    return datetime.datetime.combine(date, datetime.time())
+
+
 def parse_timezone(value: str) -> datetime.tzinfo:
     value = value.lower()
     if value == "pst":

@@ -9,15 +9,13 @@ import datetime
 from typing import Optional, Dict, Any, DefaultDict, Mapping
 from collections import defaultdict
 
-from stalkbroker import models, schemas
+from stalkbroker import models, schemas, date_utils
 
 
 SCHEMA_USER_FULL = schemas.UserSchema(use_defaults=True, unknown=marshmallow.EXCLUDE)
 SCHEMA_TICKER_FULL = schemas.TickerSchema(
     use_defaults=True, unknown=marshmallow.EXCLUDE,
 )
-
-DATE_SERIALIZER = schemas.DateField()
 
 
 _QueryType = Dict[str, Any]
@@ -30,15 +28,15 @@ def _default_factory() -> DefaultDict[str, DefaultDict[str, Any]]:
     return defaultdict(_default_factory)
 
 
-def new_update() -> _UpdateType:
+def _new_update() -> _UpdateType:
     return defaultdict(_default_factory)
 
 
-def query_discord_id(discord_id: str) -> _QueryType:
+def _query_discord_id(discord_id: str) -> _QueryType:
     return {"discord_id": discord_id}
 
 
-class Collections:
+class _Collections:
     def __init__(self, db: motor.core.AgnosticDatabase) -> None:
         self.users: motor.core.AgnosticCollection = db["users"]
         self.purchases: motor.core.AgnosticCollection = db["purchases"]
@@ -50,7 +48,7 @@ class DBConnection:
     def __init__(self) -> None:
         self.client: Optional[motor.core.AgnosticClient] = None
         self.db: Optional[motor.core.AgnosticDatabase] = None
-        self.collections: Optional[Collections] = None
+        self.collections: Optional[_Collections] = None
 
     async def connect(self) -> None:
         user = os.getenv("MONGO_USER")
@@ -63,7 +61,7 @@ class DBConnection:
 
         self.client = motor.motor_asyncio.AsyncIOMotorClient(connection_uri)
         self.db = self.client["stalkbroker"]
-        self.collections = Collections(self.db)
+        self.collections = _Collections(self.db)
 
     @staticmethod
     def _add_server_to_user_update(update: _UpdateType, server_id: str) -> None:
@@ -78,7 +76,7 @@ class DBConnection:
         assert self.collections is not None
 
         if update is None:
-            update = new_update()
+            update = _new_update()
 
         # If this user is not yet known, add a stalkbroker ID for them as well as
         # their discord id. These fields only get added if a record does not already
@@ -91,9 +89,9 @@ class DBConnection:
         )
 
     async def add_user(self, discord_id: str, server_id: str) -> None:
-        query = query_discord_id(discord_id)
+        query = _query_discord_id(discord_id)
 
-        update = new_update()
+        update = _new_update()
         self._add_server_to_user_update(update, server_id)
 
         await self._upsert_user(query, update)
@@ -102,10 +100,10 @@ class DBConnection:
         """Fetches user model from database."""
         assert self.collections is not None
 
-        query = query_discord_id(discord_id)
+        query = _query_discord_id(discord_id)
         user_data = await self.collections.users.find_one(query)
         if user_data is None:
-            update = new_update()
+            update = _new_update()
             self._add_server_to_user_update(update, server_id)
             user_data = await self._upsert_user(query, update)
 
@@ -117,8 +115,8 @@ class DBConnection:
         """Update the timezone of a user."""
         assert self.collections is not None
 
-        query = query_discord_id(discord_id)
-        update = new_update()
+        query = _query_discord_id(discord_id)
+        update = _new_update()
         self._add_server_to_user_update(update, server_id)
         update["$set"]["timezone"] = tz.tzname(None)
 
@@ -136,10 +134,9 @@ class DBConnection:
     ) -> None:
         assert self.collections is not None
 
-        mongo_date = DATE_SERIALIZER._serialize(week_of, "", dict())
+        mongo_date = date_utils.serialize_date(week_of)
 
         query = {"week_of": mongo_date}
-
         update: Dict[str, Any] = {
             "$setOnInsert": {"user_id": user.id, "week_of": mongo_date},
         }
@@ -160,7 +157,7 @@ class DBConnection:
     ) -> models.Ticker:
         assert self.collections is not None
 
-        mongo_data = DATE_SERIALIZER._serialize(week_of, "", dict())
+        mongo_data = date_utils.serialize_date(week_of)
 
         query = {"user_id": user.id, "week_of": mongo_data}
         ticker_data = await self.collections.tickers.find_one(query)
