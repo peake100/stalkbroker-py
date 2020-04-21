@@ -39,9 +39,25 @@ def _query_discord_id(discord_id: str) -> _QueryType:
 class _Collections:
     def __init__(self, db: motor.core.AgnosticDatabase) -> None:
         self.users: motor.core.AgnosticCollection = db["users"]
-        self.purchases: motor.core.AgnosticCollection = db["purchases"]
         self.tickers: motor.core.AgnosticCollection = db["tickers"]
-        self.sales: motor.core.AgnosticCollection = db["sales"]
+
+    async def make_indexes(self) -> None:
+        # USER INDEXES
+        await self.users.create_index("id", unique=True, name="user_id")
+        await self.users.create_index("discord_id", unique=True, name="discord_id")
+
+        # TICKER INDEXES
+        await self.tickers.create_index("user_id", unique=True, name="user_id")
+        await self.tickers.create_index("week_of", unique=True, name="week_of")
+        # The most common search case is going to be searching for a specific user's
+        # weekly ticker, so let's make a compound index for it. We also want to mark
+        # it as unique so we don't result in a duplicate record by accident from an
+        # odd race condition
+        await self.tickers.create_index(
+            [("user_id", pymongo.ASCENDING), ("week_of", pymongo.ASCENDING)],
+            unique=True,
+            name="user_week_of",
+        )
 
 
 class DBConnection:
@@ -51,17 +67,15 @@ class DBConnection:
         self.collections: Optional[_Collections] = None
 
     async def connect(self) -> None:
-        user = os.getenv("MONGO_USER")
-        pw = os.getenv("MONGO_PASSWORD")
-
-        connection_uri: str = (
-            f"mongodb+srv://{user}:{pw}@cluster0-spyaj.mongodb.net"
-            "/test?retryWrites=true&w=majority"
-        )
+        # Get our mongo URI from the environment
+        connection_uri: str = os.environ["MONGO_URI"]
 
         self.client = motor.motor_asyncio.AsyncIOMotorClient(connection_uri)
         self.db = self.client["stalkbroker"]
         self.collections = _Collections(self.db)
+
+        # Make indexes on the db. This has no effect if the indexes are already set up.
+        await self.collections.make_indexes()
 
     @staticmethod
     def _add_server_to_user_update(update: _UpdateType, server_id: str) -> None:
