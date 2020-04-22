@@ -1,5 +1,6 @@
-from .enums import TimeOfDay, Patterns
-from .user import User
-from .ticker import Ticker, PhaseInfo
+from ._enums import TimeOfDay, Patterns
+from ._user import User
+from ._ticker import Ticker, PhaseInfo
+from ._server import Server
 
-(TimeOfDay, Patterns, User, Ticker, PhaseInfo)
+(TimeOfDay, Patterns, User, Ticker, PhaseInfo, Server)

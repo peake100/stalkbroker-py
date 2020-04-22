@@ -1,3 +1,3 @@
-from .schemas import TickerSchema, UserSchema
+from ._schemas import Ticker, User, Server
 
-(TickerSchema, UserSchema)
+(Ticker, User, Server)

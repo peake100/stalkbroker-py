@@ -1,11 +1,6 @@
-import os
 import dotenv
-
-from stalkbroker.bot import STALKBROKER
-
+from stalkbroker import bot
 
 if __name__ == "__main__":
     dotenv.load_dotenv()
-
-    TOKEN = os.getenv("DISCORD_TOKEN")
-    STALKBROKER.run(TOKEN)
+    bot.run_stalkbroker()

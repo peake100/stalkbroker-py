@@ -12,10 +12,9 @@ from collections import defaultdict
 from stalkbroker import models, schemas, date_utils
 
 
-SCHEMA_USER_FULL = schemas.UserSchema(use_defaults=True, unknown=marshmallow.EXCLUDE)
-SCHEMA_TICKER_FULL = schemas.TickerSchema(
-    use_defaults=True, unknown=marshmallow.EXCLUDE,
-)
+SCHEMA_SERVER_FULL = schemas.Server(use_defaults=True, unknown=marshmallow.EXCLUDE)
+SCHEMA_USER_FULL = schemas.User(use_defaults=True, unknown=marshmallow.EXCLUDE)
+SCHEMA_TICKER_FULL = schemas.Ticker(use_defaults=True, unknown=marshmallow.EXCLUDE,)
 
 
 _QueryType = Dict[str, Any]
@@ -32,16 +31,21 @@ def _new_update() -> _UpdateType:
     return defaultdict(_default_factory)
 
 
-def _query_discord_id(discord_id: str) -> _QueryType:
+def _query_discord_id(discord_id: int) -> _QueryType:
     return {"discord_id": discord_id}
 
 
 class _Collections:
     def __init__(self, db: motor.core.AgnosticDatabase) -> None:
+        self.servers: motor.core.AgnosticCollection = db["servers"]
         self.users: motor.core.AgnosticCollection = db["users"]
         self.tickers: motor.core.AgnosticCollection = db["tickers"]
 
     async def make_indexes(self) -> None:
+        # SERVER INDEXES
+        await self.servers.create_index("id", unique=True, name="server_id")
+        await self.servers.create_index("discord_id", unique=True, name="discord_id")
+
         # USER INDEXES
         await self.users.create_index("id", unique=True, name="user_id")
         await self.users.create_index("discord_id", unique=True, name="discord_id")
@@ -77,6 +81,42 @@ class DBConnection:
         # Make indexes on the db. This has no effect if the indexes are already set up.
         await self.collections.make_indexes()
 
+    async def _upsert_server(
+        self, query: _QueryType, update: Optional[_UpdateType]
+    ) -> models.Server:
+        assert self.collections is not None
+
+        if update is None:
+            update = _new_update()
+
+        update["$setOnInsert"]["id"] = uuid.uuid4()
+        update["$setOnInsert"]["discord_id"] = query["discord_id"]
+
+        server_data = await self.collections.servers.find_one_and_update(
+            query, update, upsert=True, return_document=pymongo.ReturnDocument.AFTER,
+        )
+
+        server = SCHEMA_SERVER_FULL.load(server_data)
+        assert isinstance(server, models.Server)
+
+        return server
+
+    async def add_server(self, discord_id: int) -> models.Server:
+        query = _query_discord_id(discord_id)
+        return await self._upsert_server(query, None)
+
+    async def fetch_server(self, discord_id: int) -> models.Server:
+        query = _query_discord_id(discord_id)
+        return await self._upsert_server(query, None)
+
+    async def server_set_bulletin_channel(
+        self, discord_id: int, channel_id: int,
+    ) -> models.Server:
+        query = _query_discord_id(discord_id)
+        update = _new_update()
+        update["$set"]["bulletin_channel"] = channel_id
+        return await self._upsert_server(query, update)
+
     @staticmethod
     def _add_server_to_user_update(update: _UpdateType, server_id: str) -> None:
         update["$addToSet"]["servers"] = server_id
@@ -89,9 +129,6 @@ class DBConnection:
         """
         assert self.collections is not None
 
-        if update is None:
-            update = _new_update()
-
         # If this user is not yet known, add a stalkbroker ID for them as well as
         # their discord id. These fields only get added if a record does not already
         # exist
@@ -102,7 +139,7 @@ class DBConnection:
             query, update, upsert=True, return_document=pymongo.ReturnDocument.AFTER,
         )
 
-    async def add_user(self, discord_id: str, server_id: str) -> None:
+    async def add_user(self, discord_id: int, server_id: str) -> None:
         query = _query_discord_id(discord_id)
 
         update = _new_update()
@@ -110,7 +147,7 @@ class DBConnection:
 
         await self._upsert_user(query, update)
 
-    async def fetch_user(self, discord_id: str, server_id: str) -> models.User:
+    async def fetch_user(self, discord_id: int, server_id: str) -> models.User:
         """Fetches user model from database."""
         assert self.collections is not None
 
@@ -124,7 +161,7 @@ class DBConnection:
         return SCHEMA_USER_FULL.load(user_data)
 
     async def update_timezone(
-        self, discord_id: str, server_id: str, tz: pytz.tzinfo
+        self, discord_id: int, server_id: str, tz: pytz.tzinfo
     ) -> None:
         """Update the timezone of a user."""
         assert self.collections is not None

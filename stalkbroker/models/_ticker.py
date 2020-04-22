@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import Optional, Generator, Dict
 
 
-from .enums import TimeOfDay, Patterns
+from ._enums import TimeOfDay, Patterns
 
 
 @dataclass

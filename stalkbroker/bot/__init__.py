@@ -1,4 +1,4 @@
-from .bot import STALKBROKER
+from ._bot import run_stalkbroker, STALKBROKER
 
 # Here to stop linter complaint of not being used,
-(STALKBROKER)
+(run_stalkbroker, STALKBROKER)

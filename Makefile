@@ -26,10 +26,15 @@ clean:
 
 .PHONY: test
 test:
+	-docker pull 'mongo'
+	-docker rm -f mongotest
+	docker run -d --name mongotest -p 127.0.0.1:57017:27017/tcp mongo
 	-pytest
 	sleep 1
 	open ./zdevelop/tests/_reports/coverage/index.html
 	open ./zdevelop/tests/_reports/test_results.html
+	-docker stop mongotest
+	-rm -rf ~/test/mongo
 
 .PHONY: lint
 lint:

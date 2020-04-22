@@ -1,9 +1,9 @@
 import discord.ext.commands
 import re
-from typing import Union, Optional, Dict, Any, Tuple
+from typing import Optional, Tuple
 
-from .bot import STALKBROKER, DB_CONNECTION
-from stalkbroker import date_utils, formatting, schemas, errors
+from ._bot import STALKBROKER, DB_CONNECTION
+from stalkbroker import date_utils, schemas, errors, messages
 
 
 _IMPORT_HELPER = None
@@ -14,7 +14,7 @@ REGEX_TIME_OF_DAY_ARG = re.compile(r"AM|PM", flags=re.IGNORECASE)
 REGEX_PRICE_ARG = re.compile(r"\d+")
 
 
-SCHEMA_TICKER_DISPLAY = schemas.TickerSchema(exclude=["user_id", "week_of"])
+SCHEMA_TICKER_DISPLAY = schemas.Ticker(exclude=["user_id", "week_of"])
 
 
 async def update_ticker(
@@ -31,7 +31,7 @@ async def update_ticker(
     # If we don't know the users timezone, raise a UnknownUserTimezoneError, and
     # our error handler will take care of the rest
     if user.timezone is None:
-        raise errors.UnknownUserTimezoneError
+        raise errors.UnknownUserTimezoneError(ctx)
 
     time_of_day = date_utils.deduce_am_pm(message, user.timezone, am_pm)
     date_local = date_utils.deduce_date(message, user.timezone, date)
@@ -41,26 +41,16 @@ async def update_ticker(
 
     # If this isn't a sunday, then we are updating a sell price
     if date_local.weekday() != 6:
-        response = formatting.form_response(
-            header="THE MARKET IS MOVING!!!",
-            info={
-                "Market": ctx.author.display_name,
-                "Nooks' Offer": f"{price} {ctx.guild}",
-                "Date": date_local,
-                "Period": time_of_day.name,
-                "Memo": "401K through the vegetable way",
-            },
+        response = messages.bulletin_nook_price_update(
+            display_name=ctx.author.display_name,
+            price=price,
+            date_local=date_local,
+            time_of_day=time_of_day,
         )
     else:
-        # Otherwise we are updating the
-        response = formatting.form_response(
-            header="INVESTMENT OPPORTUNITY AVAILABLE!!!",
-            info={
-                "Market": ctx.author.display_name,
-                "Daisey's Deal": f"{price} <:bells:691383087241887785>",
-                "Date": date_local,
-                "Memo": "401K through the vegetable way",
-            },
+        # Otherwise we are updating the sunday sell price
+        response = messages.bulletin_daisey_mae_price_update(
+            display_name=ctx.author.display_name, price=price, date_local=date_local,
         )
 
     await ctx.send(response)
@@ -79,36 +69,22 @@ async def fetch_ticker(ctx: discord.ext.commands.Context, date: Optional[str]) -
 
     broker_user = await DB_CONNECTION.fetch_user(discord_user.id, message.guild.id)
     if broker_user.timezone is None:
-        raise errors.UnknownUserTimezoneError("User timezone has not been set.")
+        raise errors.UnknownUserTimezoneError(ctx)
 
-    local_request_date = date_utils.deduce_date(
+    # Get the time of the message adjusted for the user's timezone
+    message_date_local = date_utils.deduce_date(
         message, user_tz=broker_user.timezone, date_arg=date
     )
 
-    week_of = date_utils.previous_sunday(local_request_date)
+    week_of = date_utils.previous_sunday(message_date_local)
     user_ticker = await DB_CONNECTION.fetch_ticker(broker_user, week_of)
 
-    response_info: Dict[str, Any] = {
-        "Market": ctx.author.display_name,
-        "Week of": week_of.strftime("%m/%d"),
-    }
-    if user_ticker.purchase_price is None:
-        response_info["Daisey's Deal"] = "?"
-    else:
-        response_info["Daisey's Deal"] = user_ticker.purchase_price
-
-    for phase in user_ticker:
-        if phase.date > local_request_date:
-            break
-
-        if phase.price is None:
-            price_report: Union[str, int] = "?"
-        else:
-            price_report = phase.price
-
-        response_info[phase.name] = price_report
-
-    response = formatting.form_response(header=f"MARKER REPORT", info=response_info,)
+    response = messages.report_ticker(
+        display_name=ctx.author.display_name,
+        week_of=week_of,
+        ticker=user_ticker,
+        message_date_local=message_date_local,
+    )
 
     await ctx.send(response)
 
