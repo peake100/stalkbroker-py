@@ -5,7 +5,7 @@ discord bot for tracking you and your friends' turnip prices in Animal Crossing!
 
 ## Getting Started
 For full documentation:
-[read the docs](https://illuscio-dev.github.io/islelib-py/).
+[read the docs](https://peake100.github.io/stalkbroker-py/).
 
 For library development guide, 
 [read the docs](https://illuscio-dev.github.io/islelib-py/).
