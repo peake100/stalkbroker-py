@@ -2,9 +2,18 @@ import traceback
 import discord.ext.commands
 import logging
 import asyncio
-from typing import List, Coroutine
+from typing import List, Coroutine, Union, Type
 
 from stalkbroker import errors, messages
+
+
+def _is_general_exception(error: Union[BaseException, Type[BaseException]]) -> bool:
+    if isinstance(error, BaseException):
+        return True
+    elif isinstance(error, type) and issubclass(error, BaseException):
+        return True
+    else:
+        return False
 
 
 async def _handle_bulk_error(
@@ -27,7 +36,7 @@ async def _handle_bulk_error(
 
     # We'll raise the first error we come across.
     for result in results:
-        if isinstance(result, BaseException) or issubclass(result, BaseException):
+        if _is_general_exception(error):
             raise result
 
 

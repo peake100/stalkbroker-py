@@ -6,6 +6,7 @@ import motor.motor_asyncio
 import motor.core
 import pymongo.errors
 import datetime
+import discord
 from typing import Optional, Dict, Any, DefaultDict, Mapping
 from collections import defaultdict
 
@@ -130,53 +131,59 @@ class DBConnection:
 
         return server
 
-    async def add_server(self, discord_id: int) -> models.Server:
+    async def add_server(self, server: discord.Guild) -> models.Server:
         """
         Add a server record if it does not already exist.
 
-        :param discord_id: the id of the server,
+        :param server: the server to add a record for.
 
         :returns: the updated / created server data.
         """
-        query = _query_discord_id(discord_id)
+        query = _query_discord_id(server.id)
         return await self._upsert_server(query, None)
 
-    async def fetch_server(self, discord_id: int) -> models.Server:
+    async def fetch_server(self, server: discord.Guild) -> models.Server:
         """
         Fetch a server record.
 
-        :param discord_id: the id of the server.
+        :param server: the server to fetch info about.
 
         If a record does not already exist for the server, it will be created.
 
         :returns: the server data.
         """
-        query = _query_discord_id(discord_id)
+        query = _query_discord_id(server.id)
         return await self._upsert_server(query, None)
 
     async def server_set_bulletin_channel(
-        self, discord_id: int, channel_id: int,
+        self, server: discord.Guild, channel: discord.TextChannel,
     ) -> models.Server:
         """
         Set the bulletin channel id for a server.
 
-        :param discord_id: the id of the server,
-        :param channel_id: the id of the channel.
+        :param server: the server to set the channel for.
+        :param channel: the channel to send bulletins to.
 
         :returns: the updated server data.
         """
-        query = _query_discord_id(discord_id)
+        query = _query_discord_id(server.id)
         update = _new_update()
-        update["$set"]["bulletin_channel"] = channel_id
+        update["$set"]["bulletin_channel"] = channel.id
         return await self._upsert_server(query, update)
 
     @staticmethod
-    def _add_server_to_user_update(update: _UpdateType, server_id: str) -> None:
+    def _add_server_to_user_update(
+        update: _UpdateType, server: Optional[discord.Guild]
+    ) -> None:
         """handles adding a new server id to a user's record."""
 
         # The $addToSet operator adds a value to an array only if it does not already
-        # exist.
-        update["$addToSet"]["servers"] = server_id
+        # exist. If we are interacting with the user over DM, the guild value will
+        # be ``None``, so there is nothing to add. We are going ot handle that here
+        # rather than in every operation where we might want to add a server for the
+        # user.
+        if server is not None:
+            update["$addToSet"]["servers"] = server.id
 
     async def _upsert_user(
         self, query: _QueryType, update: _UpdateType
@@ -197,12 +204,14 @@ class DBConnection:
             query, update, upsert=True, return_document=pymongo.ReturnDocument.AFTER,
         )
 
-    async def add_user(self, discord_id: int, server_id: str) -> models.User:
+    async def add_user(
+        self, discord_user: discord.User, server: Optional[discord.Guild]
+    ) -> models.User:
         """
         Add a user to the database.
 
-        :param discord_id: the discord id of the user.
-        :param server_id: the server id of the guild this user was found on
+        :param discord_user: the discord user we want to add.
+        :param server: the server this user was found on. ``None`` if found via DM.
 
         Calling this method for a user that already exists is safe. In such a case, the
         server id will be appended to the existing record if it is new. It is expected
@@ -210,10 +219,10 @@ class DBConnection:
 
         :returns: User data.
         """
-        query = _query_discord_id(discord_id)
+        query = _query_discord_id(discord_user.id)
 
         update = _new_update()
-        self._add_server_to_user_update(update, server_id)
+        self._add_server_to_user_update(update, server)
 
         user_document = await self._upsert_user(query, update)
         user = SCHEMA_USER_FULL.load(user_document)
@@ -222,12 +231,14 @@ class DBConnection:
 
         return user
 
-    async def fetch_user(self, discord_id: int, server_id: str) -> models.User:
+    async def fetch_user(
+        self, discord_user: discord.User, server: Optional[discord.Guild]
+    ) -> models.User:
         """
         Fetches user model from database.
 
-        :param discord_id: the discord id of the user.
-        :param server_id: the server id of the guild this user was found on.
+        :param discord_user: the discord user we want to fetch info about.
+        :param server: the server this user was found on. ``None`` if found via DM.
 
         If the user is not known to stalkbroker, a record will be created for them and
         returned.
@@ -236,30 +247,32 @@ class DBConnection:
         """
         assert self.collections is not None
 
-        query = _query_discord_id(discord_id)
-        user_data = await self.collections.users.find_one(query)
-        if user_data is None:
-            update = _new_update()
-            self._add_server_to_user_update(update, server_id)
-            user_data = await self._upsert_user(query, update)
+        query = _query_discord_id(discord_user.id)
+
+        update = _new_update()
+        self._add_server_to_user_update(update, server)
+        user_data = await self._upsert_user(query, update)
 
         return SCHEMA_USER_FULL.load(user_data)
 
     async def update_timezone(
-        self, discord_id: int, server_id: str, tz: pytz.tzinfo
+        self,
+        discord_user: discord.User,
+        server: Optional[discord.Guild],
+        tz: pytz.tzinfo,
     ) -> None:
         """
         Update the timezone of a user.
 
-        :param discord_id: the discord id of the user.
-        :param server_id: the server if the user is on.
+        :param discord_user: the discord user to update.
+        :param server: the server the user is on. ``None`` if interacting via DM.
         :param tz: the local timezone of the user to save.
         """
         assert self.collections is not None
 
-        query = _query_discord_id(discord_id)
+        query = _query_discord_id(discord_user.id)
         update = _new_update()
-        self._add_server_to_user_update(update, server_id)
+        self._add_server_to_user_update(update, server)
         update["$set"]["timezone"] = tz.tzname(None)
 
         updated = await self.collections.users.find_one_and_update(query, update)

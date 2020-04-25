@@ -32,14 +32,14 @@ async def _add_all_guild_members(guild: discord.Guild) -> None:
 
     user: discord.Member
     for member in guild.members:
-        user_coros.append(STALKBROKER.db.add_user(member.id, guild.id))
+        user_coros.append(STALKBROKER.db.add_user(member, guild))
 
     await asyncio.gather(*user_coros)
 
 
 async def _add_guild(guild: discord.Guild) -> None:
     """Add a single guild and it's users to stalkbroker's database."""
-    guild_add_coro = STALKBROKER.db.add_server(guild.id)
+    guild_add_coro = STALKBROKER.db.add_server(guild)
     member_add_coro = _add_all_guild_members(guild)
 
     await asyncio.gather(guild_add_coro, member_add_coro)
@@ -72,4 +72,4 @@ async def on_guild_join(guild: discord.Guild) -> None:
 @STALKBROKER.event
 async def on_member_join(member: discord.Member) -> None:
     """Add any new members that join."""
-    await STALKBROKER.db.add_user(member.id, member.guild.id)
+    await STALKBROKER.db.add_user(member, member.guild)
