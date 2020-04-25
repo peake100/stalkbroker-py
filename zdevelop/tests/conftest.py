@@ -5,6 +5,7 @@ import discord.ext.commands
 import dotenv
 import time
 import datetime
+import pytz
 import uuid
 from concurrent.futures.thread import ThreadPoolExecutor
 from typing import List
@@ -118,13 +119,7 @@ def local_tz() -> datetime.tzinfo:
     integral to knowing the price phase of the user, we'll need to use it to make some
     adjustment to our datetimes.
     """
-    return datetime.datetime.now().astimezone().tzinfo
-
-
-@pytest.fixture()
-def tz_offset(local_tz: datetime.tzinfo) -> datetime.timedelta:
-    """The tz offset of the local timezone"""
-    return local_tz.utcoffset(None) * -1
+    return pytz.timezone("America/Los_Angeles")
 
 
 @pytest.fixture()
@@ -138,7 +133,6 @@ def base_sunday():
 def relative_message_time(
     sunday: datetime.date,
     weekday: int,
-    local_tz: datetime.tzinfo,
     hour: int = 0,
     minute: int = 0,
     second: int = 0,
@@ -152,7 +146,7 @@ def relative_message_time(
 
     clock_time = datetime.time(hour=hour, minute=minute, second=second,)
 
-    return datetime.datetime.combine(date, clock_time, tzinfo=local_tz)
+    return datetime.datetime.combine(date, clock_time)
 
 
 @pytest.fixture()
@@ -163,49 +157,29 @@ def phase_dates(
     Test dates and times for the entire week of base_sunday. These are the times we
     will use as our message times for updating bell prices.
     """
-    sunday = relative_message_time(sunday=base_sunday, weekday=6, local_tz=local_tz)
+    sunday = relative_message_time(sunday=base_sunday, weekday=6)
 
-    monday_am = relative_message_time(
-        sunday=base_sunday, weekday=0, hour=10, local_tz=local_tz
-    )
-    monday_pm = relative_message_time(
-        sunday=base_sunday, weekday=0, hour=14, local_tz=local_tz
-    )
+    monday_am = relative_message_time(sunday=base_sunday, weekday=0, hour=10)
+    monday_pm = relative_message_time(sunday=base_sunday, weekday=0, hour=14)
 
     tuesday_am = relative_message_time(
-        sunday=base_sunday, weekday=1, hour=11, minute=59, second=59, local_tz=local_tz
+        sunday=base_sunday, weekday=1, hour=11, minute=59, second=59
     )
     tuesday_pm = relative_message_time(
-        sunday=base_sunday, weekday=1, hour=23, minute=59, second=59, local_tz=local_tz
+        sunday=base_sunday, weekday=1, hour=23, minute=59, second=59
     )
 
-    wednesday_am = relative_message_time(
-        sunday=base_sunday, weekday=2, hour=9, local_tz=local_tz
-    )
-    wednesday_pm = relative_message_time(
-        sunday=base_sunday, weekday=2, hour=16, local_tz=local_tz
-    )
+    wednesday_am = relative_message_time(sunday=base_sunday, weekday=2, hour=9)
+    wednesday_pm = relative_message_time(sunday=base_sunday, weekday=2, hour=16)
 
-    thursday_am = relative_message_time(
-        sunday=base_sunday, weekday=3, hour=11, local_tz=local_tz
-    )
-    thursday_pm = relative_message_time(
-        sunday=base_sunday, weekday=3, hour=16, local_tz=local_tz
-    )
+    thursday_am = relative_message_time(sunday=base_sunday, weekday=3, hour=11)
+    thursday_pm = relative_message_time(sunday=base_sunday, weekday=3, hour=16)
 
-    friday_am = relative_message_time(
-        sunday=base_sunday, weekday=4, hour=11, local_tz=local_tz
-    )
-    friday_pm = relative_message_time(
-        sunday=base_sunday, weekday=4, hour=16, local_tz=local_tz
-    )
+    friday_am = relative_message_time(sunday=base_sunday, weekday=4, hour=11)
+    friday_pm = relative_message_time(sunday=base_sunday, weekday=4, hour=16)
 
-    saturday_am = relative_message_time(
-        sunday=base_sunday, weekday=5, hour=11, local_tz=local_tz
-    )
-    saturday_pm = relative_message_time(
-        sunday=base_sunday, weekday=5, hour=16, local_tz=local_tz
-    )
+    saturday_am = relative_message_time(sunday=base_sunday, weekday=5, hour=11)
+    saturday_pm = relative_message_time(sunday=base_sunday, weekday=5, hour=16)
 
     return [
         sunday,

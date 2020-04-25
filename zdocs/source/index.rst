@@ -23,18 +23,19 @@ Like so:
 
 .. code-block::
 
-    $timezone US/Pacific
+    $timezone America/Los_Angeles
 
 Stalkbroker will confirm it heard you:
 
 .. code-block:: text
 
     I've made a note, @Billy (Zalack) 🍊 - Verune! You're growing your portfolio on
-    US/Pacific time
+    America/Los_Angeles time
 
 Timezones names are very a particular, you can find your timezone name
 `here <https://en.wikipedia.org/wiki/List_of_tz_database_time_zones>`_, in the
-``'TZ database name'`` column.
+``'TZ database name'`` column. Try to find the most specific timezone possible, as time
+standards are weird and hard, and we wish everyone could just be on ~island time~.
 
 .. note::
 

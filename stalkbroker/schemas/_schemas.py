@@ -1,6 +1,7 @@
 import grahamcracker
 import marshmallow
 import datetime
+import pytz
 from typing import Any, Dict, Type, Union
 
 from stalkbroker import models
@@ -14,8 +15,7 @@ from ._fields import TzField, DateField, PatternsField
 _HandlerType = Union[marshmallow.fields.Field, marshmallow.Schema]
 _TYPE_HANDLERS: Dict[Type[Any], Type[_HandlerType]] = dict()
 
-
-_TYPE_HANDLERS[datetime.tzinfo] = TzField
+_TYPE_HANDLERS[pytz.BaseTzInfo] = TzField
 _TYPE_HANDLERS[datetime.date] = DateField
 _TYPE_HANDLERS[models.Patterns] = PatternsField
 

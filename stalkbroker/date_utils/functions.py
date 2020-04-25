@@ -39,7 +39,7 @@ def serialize_date(date: datetime.date) -> datetime.datetime:
     return datetime.datetime.combine(date, datetime.time())
 
 
-def parse_timezone_arg(value: str) -> datetime.tzinfo:
+def parse_timezone_arg(value: str) -> pytz.BaseTzInfo:
     """Parse a timezone argument supplied by a user."""
     value = value.lower()
     if value == "pst":
@@ -53,7 +53,7 @@ def parse_timezone_arg(value: str) -> datetime.tzinfo:
 
 
 def _parse_date_arg_core(
-    ctx: discord.ext.commands.Context, date_arg: str, user_tz: datetime.tzinfo
+    ctx: discord.ext.commands.Context, date_arg: str, user_tz: pytz.BaseTzInfo
 ) -> datetime.date:
     """
     Core logic for parsing a date argument.
@@ -98,7 +98,7 @@ def _parse_date_arg_core(
 
 
 def _parse_date_arg(
-    ctx: discord.ext.commands.Context, date_arg: str, user_tz: datetime.tzinfo
+    ctx: discord.ext.commands.Context, date_arg: str, user_tz: pytz.BaseTzInfo
 ) -> datetime.date:
     """
     Parse a datetime argument into a date.
@@ -118,7 +118,7 @@ def _parse_date_arg(
 
 
 def get_context_local_dt(
-    ctx: discord.ext.commands.Context, user_tz: datetime.tzinfo
+    ctx: discord.ext.commands.Context, user_tz: pytz.BaseTzInfo
 ) -> datetime.datetime:
     """
     Convert the command context's utc message creation time to the users local time.
@@ -192,7 +192,7 @@ def previous_sunday(anchor_date: datetime.date) -> datetime.date:
 def deduce_price_date(
     ctx: discord.ext.commands.Context,
     date_arg: Optional[str],
-    user_tz: datetime.tzinfo,
+    user_tz: pytz.BaseTzInfo,
 ) -> datetime.date:
     """
     Extract a date from a message datetime or arguments.
@@ -215,7 +215,7 @@ def _deduce_price_time_of_day(
     ctx: discord.ext.commands.Context,
     time_of_day_arg: Optional[str],
     price_date: datetime.date,
-    user_tz: datetime.tzinfo,
+    user_tz: pytz.BaseTzInfo,
 ) -> Optional[models.TimeOfDay]:
     """Like deduce_price_date, but deducing the time of day (AM/PM)"""
     if price_date.weekday() == SUNDAY:
@@ -236,7 +236,7 @@ def deduce_price_period(
     ctx: discord.ext.commands.Context,
     date_arg: Optional[str],
     time_of_day_arg: Optional[str],
-    user_tz: datetime.tzinfo,
+    user_tz: pytz.BaseTzInfo,
 ) -> Tuple[datetime.date, Optional[models.TimeOfDay]]:
     """
     Extract a price period from a message datetime or arguments.

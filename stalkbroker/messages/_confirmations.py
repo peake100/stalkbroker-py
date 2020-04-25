@@ -1,5 +1,6 @@
 import discord.ext.commands
 import datetime
+import pytz
 from typing import Optional
 
 
@@ -27,7 +28,7 @@ def confirmation_bulletins_channel(user: discord.User) -> str:
     )
 
 
-def confirmation_timezone(user: discord.User, tz: datetime.tzinfo) -> str:
+def confirmation_timezone(user: discord.User, tz: pytz.BaseTzInfo) -> str:
     """
     Confirmation message for setting the local timezone for a user.
 
@@ -38,7 +39,7 @@ def confirmation_timezone(user: discord.User, tz: datetime.tzinfo) -> str:
     """
     return (
         f"I've made a note, {user.mention}! "
-        f"You're growing your portfolio on {tz.tzname(None)} time"
+        f"You're growing your portfolio on {tz.zone} time"
     )
 
 

@@ -11,13 +11,12 @@ class TzField(marshmallow.fields.Field):
     """Used to serialize and deserialize datetime.tzinfo.s"""
 
     def _serialize(
-        self, value: datetime.tzinfo, attr: str, obj: Any, **kwargs: Any,
+        self, value: pytz.BaseTzInfo, attr: str, obj: Any, **kwargs: Any,
     ) -> str:
-        name = value.tzname(None)
-        if name is None:
+        if value.zone is None:
             raise ValueError("could not get name for timezone")
 
-        return name
+        return value.zone
 
     def _deserialize(
         self,

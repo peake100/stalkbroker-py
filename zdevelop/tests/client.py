@@ -3,7 +3,6 @@ import discord.client
 import uuid
 import logging
 import datetime
-import freezegun
 from asynctest import patch
 from typing import Optional, List, Callable, Awaitable, Tuple, ContextManager, Type
 from types import TracebackType
@@ -129,7 +128,7 @@ class _FreezeTimeContext:
         print("message time utc:", message_time_utc)
 
         # Freezegun handles freezing our system time.
-        self.freezegun = freezegun.freeze_time(message_time_utc)
+        # self.freezegun = freezegun.freeze_time(message_time_utc)
 
         # However, discord messages will be getting their timestamps from the real-life
         # discord server, so we are going to monkey-patch the created_at attribute with
@@ -139,7 +138,6 @@ class _FreezeTimeContext:
         )
 
         # Enter our context managers.
-        self.freezegun.__enter__()
         self.patch_message_time.__enter__()
 
     def __exit__(
@@ -149,7 +147,6 @@ class _FreezeTimeContext:
         exc_tb: Optional[TracebackType],
     ) -> bool:
         # Exit our context managers.
-        self.freezegun.__exit__(exc_type, exc_val, exc_tb)
         self.patch_message_time.__exit__(exc_type, exc_val, exc_tb)
 
         # We aren't going to suppress errors, let them propagate after we unfreeze time

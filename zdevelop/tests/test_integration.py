@@ -70,7 +70,7 @@ def mark_test(test: Callable) -> Callable:
     # Also, keep in mind that there is a rate limit on bots of 5 messages / second /
     # server so sadly, these integration tests are going to take longer than we would
     # like.
-    test = pytest.mark.timeout(10)(test)
+    test = pytest.mark.timeout(20)(test)
 
     # Make it so our bot does not appear to be a bot on inspection, otherwise discord.py
     # will ignore any commands sent by it.
@@ -210,32 +210,35 @@ class TestLifecycle:
         )
 
     @mark_test
-    async def test_set_timezone_response(self, test_client: DiscordTestClient):
+    async def test_set_timezone_response(
+        self, test_client: DiscordTestClient, local_tz: pytz.BaseTzInfo
+    ):
         """
         Tests that we can set the timezone for ourselves
         """
         test_client.reset_test(expected_message_count=1)
 
-        await test_client.channel_send.send("$timezone pst")
+        await test_client.channel_send.send(f"$timezone {local_tz.zone}")
         await test_client.event_messages_received.wait()
 
         assert len(test_client.messages_received) == 1
         test_client.assert_received_message(
-            messages.confirmation_timezone(
-                test_client.user, pytz.timezone("US/Pacific")
-            ),
+            messages.confirmation_timezone(test_client.user, local_tz),
             expected_channel=test_client.channel_send,
         )
 
     @mark_test
     async def test_set_timezone_db(
-        self, stalkdb: db.DBConnection, test_client: DiscordTestClient
+        self,
+        stalkdb: db.DBConnection,
+        test_client: DiscordTestClient,
+        local_tz: pytz.BaseTzInfo,
     ):
         """
         Tests that the timezone got updated correctly in the last test.
         """
         user = await stalkdb.fetch_user(test_client.user.id, test_client.guild.id)
-        assert user.timezone == pytz.timezone("US/Pacific")
+        assert user.timezone == local_tz
 
     @mark_test
     async def test_set_bulletin_channel(
