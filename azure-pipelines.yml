@@ -33,3 +33,4 @@ jobs:
       publishToPypiOrg: true
       testMongo: true
       publishDocs: true
+      minimumCoverage: 0.30
