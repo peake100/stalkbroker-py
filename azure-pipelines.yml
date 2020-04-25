@@ -31,3 +31,5 @@ jobs:
   - template: python_package_main.yml@templates
     parameters:
       publishToPypiOrg: true
+      testMongo: true
+      publishDocs: true
