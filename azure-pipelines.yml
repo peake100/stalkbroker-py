@@ -4,7 +4,7 @@ resources:
   repositories:
     - repository: templates
       type: github
-      name: illuscio-dev/azure-pipelines-templates
+      name: peake100/azure-pipelines-templates
       endpoint: Github_Read
 
 trigger:
