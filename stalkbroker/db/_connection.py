@@ -12,36 +12,56 @@ from collections import defaultdict
 from stalkbroker import models, schemas, date_utils
 
 
+# The schema used to serialize and deserialize the Server model.
 SCHEMA_SERVER_FULL = schemas.Server(use_defaults=True, unknown=marshmallow.EXCLUDE)
+
+# The schema used to serialize and deserialize the User model.
 SCHEMA_USER_FULL = schemas.User(use_defaults=True, unknown=marshmallow.EXCLUDE)
-SCHEMA_TICKER_FULL = schemas.Ticker(use_defaults=True, unknown=marshmallow.EXCLUDE,)
+
+# The schema used to serialize and deserialize the Ticker model.
+SCHEMA_TICKER_FULL = schemas.Ticker(
+    # If only the sunday price has been set, there maybe know 'phases' field
+    partial=("phases",),
+    use_defaults=True,
+    unknown=marshmallow.EXCLUDE,
+)
 
 
+# Types Aliases for mypy
 _QueryType = Dict[str, Any]
 _UpdateType = DefaultDict[str, DefaultDict[str, Any]]
-_NULL_PHASES = list(None for _ in range(12))
 
 
 def _default_factory() -> DefaultDict[str, DefaultDict[str, Any]]:
-    """Creates an infinitely deep nested default dict."""
+    """Creates an infinitely deep nested default dict for building updates / queries."""
     return defaultdict(_default_factory)
 
 
 def _new_update() -> _UpdateType:
+    """Primes a new default dict to start building an update document with."""
     return defaultdict(_default_factory)
 
 
 def _query_discord_id(discord_id: int) -> _QueryType:
+    """Return a base quesry for a specific discord id."""
     return {"discord_id": discord_id}
 
 
 class _Collections:
+    """
+    Houses the motor collection objects for asynchronously accessing data in mongodb.
+    """
+
     def __init__(self, db: motor.core.AgnosticDatabase) -> None:
+        """
+        :param db: the motor database object.
+        """
         self.servers: motor.core.AgnosticCollection = db["servers"]
         self.users: motor.core.AgnosticCollection = db["users"]
         self.tickers: motor.core.AgnosticCollection = db["tickers"]
 
     async def make_indexes(self) -> None:
+        """Generate indexes for the mongo db collections."""
         # SERVER INDEXES
         await self.servers.create_index("id", unique=True, name="server_id")
         await self.servers.create_index("discord_id", unique=True, name="discord_id")
@@ -51,8 +71,8 @@ class _Collections:
         await self.users.create_index("discord_id", unique=True, name="discord_id")
 
         # TICKER INDEXES
-        await self.tickers.create_index("user_id", unique=True, name="user_id")
-        await self.tickers.create_index("week_of", unique=True, name="week_of")
+        await self.tickers.create_index("user_id", name="user_id")
+        await self.tickers.create_index("week_of", name="week_of")
         # The most common search case is going to be searching for a specific user's
         # weekly ticker, so let's make a compound index for it. We also want to mark
         # it as unique so we don't result in a duplicate record by accident from an
@@ -65,12 +85,18 @@ class _Collections:
 
 
 class DBConnection:
+    """Adapter used to fetch and store data with our mongodb database."""
+
     def __init__(self) -> None:
         self.client: Optional[motor.core.AgnosticClient] = None
+        """Client object"""
         self.db: Optional[motor.core.AgnosticDatabase] = None
+        """Database object"""
         self.collections: Optional[_Collections] = None
+        """Collections object"""
 
     async def connect(self) -> None:
+        """Connect to the database. Generates indexes if this is the first time."""
         # Get our mongo URI from the environment
         connection_uri: str = os.environ["MONGO_URI"]
 
@@ -84,6 +110,9 @@ class DBConnection:
     async def _upsert_server(
         self, query: _QueryType, update: Optional[_UpdateType]
     ) -> models.Server:
+        """
+        Add a server to the database if it does not exist or update it if it does.
+         """
         assert self.collections is not None
 
         if update is None:
@@ -102,16 +131,40 @@ class DBConnection:
         return server
 
     async def add_server(self, discord_id: int) -> models.Server:
+        """
+        Add a server record if it does not already exist.
+
+        :param discord_id: the id of the server,
+
+        :returns: the updated / created server data.
+        """
         query = _query_discord_id(discord_id)
         return await self._upsert_server(query, None)
 
     async def fetch_server(self, discord_id: int) -> models.Server:
+        """
+        Fetch a server record.
+
+        :param discord_id: the id of the server.
+
+        If a record does not already exist for the server, it will be created.
+
+        :returns: the server data.
+        """
         query = _query_discord_id(discord_id)
         return await self._upsert_server(query, None)
 
     async def server_set_bulletin_channel(
         self, discord_id: int, channel_id: int,
     ) -> models.Server:
+        """
+        Set the bulletin channel id for a server.
+
+        :param discord_id: the id of the server,
+        :param channel_id: the id of the channel.
+
+        :returns: the updated server data.
+        """
         query = _query_discord_id(discord_id)
         update = _new_update()
         update["$set"]["bulletin_channel"] = channel_id
@@ -119,13 +172,18 @@ class DBConnection:
 
     @staticmethod
     def _add_server_to_user_update(update: _UpdateType, server_id: str) -> None:
+        """handles adding a new server id to a user's record."""
+
+        # The $addToSet operator adds a value to an array only if it does not already
+        # exist.
         update["$addToSet"]["servers"] = server_id
 
     async def _upsert_user(
         self, query: _QueryType, update: _UpdateType
     ) -> Mapping[str, Any]:
         """
-        Add a user if they don't exist or update the user record if they do.
+        Add a user if they don't exist or update the user record if they do. Returns
+        raw document info.
         """
         assert self.collections is not None
 
@@ -139,16 +197,43 @@ class DBConnection:
             query, update, upsert=True, return_document=pymongo.ReturnDocument.AFTER,
         )
 
-    async def add_user(self, discord_id: int, server_id: str) -> None:
+    async def add_user(self, discord_id: int, server_id: str) -> models.User:
+        """
+        Add a user to the database.
+
+        :param discord_id: the discord id of the user.
+        :param server_id: the server id of the guild this user was found on
+
+        Calling this method for a user that already exists is safe. In such a case, the
+        server id will be appended to the existing record if it is new. It is expected
+        that this method will be called on each user every time the bot boots up.
+
+        :returns: User data.
+        """
         query = _query_discord_id(discord_id)
 
         update = _new_update()
         self._add_server_to_user_update(update, server_id)
 
-        await self._upsert_user(query, update)
+        user_document = await self._upsert_user(query, update)
+        user = SCHEMA_USER_FULL.load(user_document)
+
+        assert isinstance(user, models.User)
+
+        return user
 
     async def fetch_user(self, discord_id: int, server_id: str) -> models.User:
-        """Fetches user model from database."""
+        """
+        Fetches user model from database.
+
+        :param discord_id: the discord id of the user.
+        :param server_id: the server id of the guild this user was found on.
+
+        If the user is not known to stalkbroker, a record will be created for them and
+        returned.
+
+        :returns: User data.
+        """
         assert self.collections is not None
 
         query = _query_discord_id(discord_id)
@@ -163,7 +248,13 @@ class DBConnection:
     async def update_timezone(
         self, discord_id: int, server_id: str, tz: pytz.tzinfo
     ) -> None:
-        """Update the timezone of a user."""
+        """
+        Update the timezone of a user.
+
+        :param discord_id: the discord id of the user.
+        :param server_id: the server if the user is on.
+        :param tz: the local timezone of the user to save.
+        """
         assert self.collections is not None
 
         query = _query_discord_id(discord_id)
@@ -179,10 +270,19 @@ class DBConnection:
         self,
         user: models.User,
         week_of: datetime.date,
-        date_local: datetime.date,
-        time_of_day: models.TimeOfDay,
+        price_date: datetime.date,
+        price_time_of_day: Optional[models.TimeOfDay],
         price: int,
     ) -> None:
+        """
+        Update a turnip price ticker for a user.
+
+        :param user: the stalkbroker user the ticker belongs to.
+        :param week_of: the sunday date this ticker starts.
+        :param price_date: the date this bell price occurred.
+        :param price_time_of_day: the time of day (AM/PM) this price occured.
+        :param price: the price to save.
+        """
         assert self.collections is not None
 
         mongo_date = date_utils.serialize_date(week_of)
@@ -193,9 +293,13 @@ class DBConnection:
         }
 
         set_price: Dict[str, Any] = dict()
-        if date_local.weekday() != 6:
-            phase_index = models.Ticker.phase_from_date(date_local, time_of_day)
+        if price_date.weekday() != date_utils.SUNDAY:
+            date_utils.validate_price_period(
+                date=price_date, time_of_day=price_time_of_day
+            )
+            phase_index = models.Ticker.phase_from_date(price_date, price_time_of_day)
             set_price[f"phases.{phase_index}"] = price
+
         else:
             set_price["purchase_price"] = price
 
@@ -206,6 +310,14 @@ class DBConnection:
     async def fetch_ticker(
         self, user: models.User, week_of: datetime.date
     ) -> models.Ticker:
+        """
+        Fetches a turnip price ticker for a given user and week.
+
+        :param user: the stalkbroker user the ticker belongs to.
+        :param week_of: the sunday date this ticker starts.
+
+        :returns: turnip stalk price ticker.
+        """
         assert self.collections is not None
 
         mongo_data = date_utils.serialize_date(week_of)

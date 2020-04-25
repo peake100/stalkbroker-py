@@ -1,89 +1,208 @@
 import discord.ext.commands
 import re
-from typing import Optional, Tuple
+import asyncio
+from typing import Optional, Tuple, List, Coroutine
 
-from ._bot import STALKBROKER, DB_CONNECTION
-from stalkbroker import date_utils, schemas, errors, messages
+from ._bot import STALKBROKER
+from stalkbroker import date_utils, errors, messages, models
 
 
 _IMPORT_HELPER = None
 
 
-REGEX_DATE_ARG = re.compile(r"\d+/\d+")
-REGEX_TIME_OF_DAY_ARG = re.compile(r"AM|PM", flags=re.IGNORECASE)
-REGEX_PRICE_ARG = re.compile(r"\d+")
+# One nice thing about the data we need to get to update the ticker, is each argument
+# has a unique format. We can make sense of '$ticker 112 AM 4/14' just as easily as
+# '$ticker 4/14 AM 112'. In both It's easy to deduce that We are saying: 'price of
+# bells in the morning on April the 14th was 112 bells'. We can even add a user mention
+# and still not run into format collisions.
+#
+# Because we don't HAVE to know the order of these values to deduce which is which,
+# lets make the experience for our end users a little easier by not enforcing argument
+# order. Below are the REGEXES we are going to match against to work out which argument
+# is which piece of data.
+REGEX_ARG_PRICE = re.compile(r"\d+")
+REGEX_ARG_DATE = re.compile(r"\d+/\d+(/\d+)?")
+REGEX_ARG_TIME_OF_DAY = re.compile(r"AM|PM", flags=re.IGNORECASE)
 
 
-SCHEMA_TICKER_DISPLAY = schemas.Ticker(exclude=["user_id", "week_of"])
+async def send_bulletin_to_server(
+    ctx: discord.ext.commands.Context, server_discord_id: int, bulletin: str
+) -> None:
+    """
+    Send a price update bulletin to the server.
+
+    :param ctx: message context passed in by discord.py to the calling command.
+    :param server_discord_id: the discord id of the server we need to send the bulletin
+        to
+    :param bulletin: the text content to send.
+
+    :raises NoBulletinChannelError: When the server does not have the channel it wants
+        to receive bulletins on set.
+    """
+    server_info = await STALKBROKER.db.fetch_server(server_discord_id)
+
+    guild = STALKBROKER.get_guild(server_info.discord_id)
+    if server_info.bulletin_channel is None:
+        raise errors.NoBulletinChannelError(ctx=ctx, guild=guild)
+
+    channel: discord.TextChannel = STALKBROKER.get_channel(server_info.bulletin_channel)
+    await channel.send(bulletin)
+
+
+async def send_bulletins_to_all_user_servers(
+    ctx: discord.ext.commands.Context, user: models.User, bulletin: str
+) -> None:
+    """
+    For a given user, send a price update bulletin to every server they are a part of
+    that this bot is invited to.
+
+    :param ctx: message context passed in by discord.py to the calling command.
+    :param user: The stalkbroker user data for the user with the price update.
+    :param bulletin: the text content to send.
+    """
+    # Build a list of bulletins to send out.
+    bulletin_coros: List[Coroutine] = list()
+    for server_discord_id in user.servers:
+        bulletin_coros.append(send_bulletin_to_server(ctx, server_discord_id, bulletin))
+
+    # Asynchronously send them all.
+    done, _ = await asyncio.wait(bulletin_coros)
+
+    # Check if we had any errors when sending (such as a server not having a bulletin
+    # channel set)
+    error_list: List[BaseException] = list()
+
+    for future in done:
+        try:
+            future.result()
+        except BaseException as error:
+            # If there was an error, add it to the list
+            error_list.append(error)
+
+    if error_list:
+        # If there were errors, raise them wrapped in a BulkResponseError
+        raise errors.BulkResponseError(error_list)
 
 
 async def update_ticker(
     ctx: discord.ext.commands.Context,
+    *,
     price: int,
-    am_pm: Optional[str],
-    date: Optional[str],
+    price_date_arg: Optional[str],
+    price_time_of_day_arg: Optional[str],
 ) -> None:
-    """updates a ticker for the given price period"""
+    """
+    Updates the ticker for the given price period and user.
+
+    :param ctx: message context passed in by discord.py to the calling command.
+    :param price: the new price.
+    :param price_date_arg: the date argument this price occurred on. If none, the
+        current date is used.
+    :param price_time_of_day_arg: the time of day this price occurred on (AM/PM). If
+        none, then the current time of day is used.
+
+    :raises UnknownUserTimezoneError: If the user's timezone is unknown and we cannot
+        convert their message time.
+    :raises ImaginaryDateError: If the user has specified a date that does not exist.
+    :raises FutureDateError: If the user is trying to set the price for a date that
+        has not happened yet.
+    :raises TimeOfDayRequiredError: If the user has not supplied an AM/PM argument for a
+        past date.
+    """
 
     message: discord.Message = ctx.message
-    user = await DB_CONNECTION.fetch_user(message.author.id, message.guild.id)
+    stalk_user = await STALKBROKER.db.fetch_user(message.author.id, message.guild.id)
 
-    # If we don't know the users timezone, raise a UnknownUserTimezoneError, and
-    # our error handler will take care of the rest
-    if user.timezone is None:
-        raise errors.UnknownUserTimezoneError(ctx)
+    # If we don't know the users timezone, raise a UnknownUserTimezoneError to warn the
+    # user.
+    if stalk_user.timezone is None:
+        raise errors.UnknownUserTimezoneError(ctx, ctx.author)
 
-    time_of_day = date_utils.deduce_am_pm(message, user.timezone, am_pm)
-    date_local = date_utils.deduce_date(message, user.timezone, date)
+    # Next we need to figure our what date and price period to use.
+    message_time_local = date_utils.get_context_local_dt(ctx, stalk_user.timezone)
 
-    week_of = date_utils.previous_sunday(date_local)
-    await DB_CONNECTION.update_ticker(user, week_of, date_local, time_of_day, price)
+    price_date, price_time_of_day = date_utils.deduce_price_period(
+        ctx, price_date_arg, price_time_of_day_arg, stalk_user.timezone,
+    )
 
-    # If this isn't a sunday, then we are updating a sell price
-    if date_local.weekday() != 6:
-        response = messages.bulletin_nook_price_update(
+    week_of = date_utils.previous_sunday(price_date)
+
+    await STALKBROKER.db.update_ticker(
+        user=stalk_user,
+        week_of=week_of,
+        price_date=price_date,
+        price_time_of_day=price_time_of_day,
+        price=price,
+    )
+
+    confirmation_message = messages.confirmation_ticker_update(
+        user=message.author,
+        price=price,
+        price_date=price_date,
+        price_time_of_day=price_time_of_day,
+        message_datetime_local=message_time_local,
+    )
+
+    # First we confirm with the user that we received their data
+    await ctx.send(confirmation_message)
+    # Next, If this data is for the current sale period on their island, we blast an
+    # bulletin to all the servers this user is a part of. We don't want to send a
+    # bulletin if the user is updating past prices.
+    if date_utils.is_price_period(message_time_local, price_date, price_time_of_day):
+        bulletin = messages.bulletin_price_update(
             display_name=ctx.author.display_name,
             price=price,
-            date_local=date_local,
-            time_of_day=time_of_day,
+            date_local=price_date,
+            time_of_day=price_time_of_day,
         )
-    else:
-        # Otherwise we are updating the sunday sell price
-        response = messages.bulletin_daisey_mae_price_update(
-            display_name=ctx.author.display_name, price=price, date_local=date_local,
-        )
-
-    await ctx.send(response)
+        await send_bulletins_to_all_user_servers(ctx, stalk_user, bulletin)
 
 
-async def fetch_ticker(ctx: discord.ext.commands.Context, date: Optional[str]) -> None:
+async def fetch_ticker(
+    ctx: discord.ext.commands.Context, date_arg: Optional[str]
+) -> None:
+    """
+    Fetches the ticker of a user and sends back a formatted report.
+
+    :param ctx: message context passed in by discord.py to the calling command.
+    :param date_arg: the date argument passed by the user for the week they want to
+        fetch. If none, the current date will be used. This date does not have to
+        match the ticker's ``week_of`` field, but can be any date for that week.
+
+    :raises UnknownUserTimezoneError: If the user's timezone is unknown and we cannot
+        convert their message time.
+    :raises ImaginaryDateError: If the user has specified a date that does not exist.
+    :raises FutureDateError: If the user is trying to set the price for a date that
+        has not happened yet.
+    """
     message: discord.Message = ctx.message
 
     # If another user is mentioned in the message, we want to pull their ticker instead,
     # that way you can look up other's prices.
-    if len(message.mentions) > 0:
-        # TODO: Error when more than one message
-        discord_user: discord.User = message.mentions[0]
-    else:
-        discord_user = ctx.author
+    try:
+        discord_user: discord.User = next(m for m in message.mentions)
+    except StopIteration:
+        discord_user = message.author
 
-    broker_user = await DB_CONNECTION.fetch_user(discord_user.id, message.guild.id)
-    if broker_user.timezone is None:
-        raise errors.UnknownUserTimezoneError(ctx)
+    stalk_user = await STALKBROKER.db.fetch_user(discord_user.id, message.guild.id)
+    # If we don't know the user's timezone, then we won't be able to adjust the message
+    # time reliably.
+    if stalk_user.timezone is None:
+        raise errors.UnknownUserTimezoneError(ctx, discord_user)
 
     # Get the time of the message adjusted for the user's timezone
-    message_date_local = date_utils.deduce_date(
-        message, user_tz=broker_user.timezone, date_arg=date
-    )
+    message_time_local = date_utils.get_context_local_dt(ctx, stalk_user.timezone)
 
-    week_of = date_utils.previous_sunday(message_date_local)
-    user_ticker = await DB_CONNECTION.fetch_ticker(broker_user, week_of)
+    # Decide whether to use the message time or a date included in the command
+    requested_date = date_utils.deduce_price_date(ctx, date_arg, stalk_user.timezone)
+
+    week_of = date_utils.previous_sunday(requested_date)
+    user_ticker = await STALKBROKER.db.fetch_ticker(stalk_user, week_of)
 
     response = messages.report_ticker(
-        display_name=ctx.author.display_name,
-        week_of=week_of,
+        display_name=discord_user.display_name,
         ticker=user_ticker,
-        message_date_local=message_date_local,
+        message_time_local=message_time_local,
     )
 
     await ctx.send(response)
@@ -92,20 +211,25 @@ async def fetch_ticker(ctx: discord.ext.commands.Context, date: Optional[str]) -
 def _parse_ticker_args(
     *args: str,
 ) -> Tuple[Optional[str], Optional[str], Optional[int]]:
+    """
+    Figures out which is which user argument is which ticker operation value.
+
+    :returns: date, time-of-day (AM/PM), price
+    """
     date_arg: Optional[str] = None
     am_pm: Optional[str] = None
     price: Optional[int] = None
 
     for arg in args:
-        if REGEX_PRICE_ARG.fullmatch(arg):
+        if REGEX_ARG_PRICE.fullmatch(arg):
             price = int(arg)
             continue
 
-        if REGEX_DATE_ARG.fullmatch(arg):
+        if REGEX_ARG_DATE.fullmatch(arg):
             date_arg = arg
             continue
 
-        if REGEX_TIME_OF_DAY_ARG.fullmatch(arg):
+        if REGEX_ARG_TIME_OF_DAY.fullmatch(arg):
             am_pm = arg
 
     return date_arg, am_pm, price
@@ -122,9 +246,31 @@ def _parse_ticker_args(
     ),
 )
 async def ticker(ctx: discord.ext.commands.Context, *args: str) -> None:
-    date, am_pm, price = _parse_ticker_args(*args)
+    """
+    Handles responses to the ``'$ticker'`` command.
+
+    :param ctx: message context passed in by discord.py.
+    :param args: arguments passed by the user.
+
+    To reduce the amount of typing needed to interact with this bot, both fetching and
+    updating the ticker are controlled by this command.
+
+    If a price value is included, this command is interpretted as an update request. If
+    no price is included, it is considered a fetch request.
+
+    When date or time of day arguments are omitted, the command assumes that the current
+    day / period for the time the message was sent.
+
+    See the Quickstart documentation for examples of how to invoke this command.
+    """
+    date_arg, time_of_day_arg, price = _parse_ticker_args(*args)
 
     if price is not None:
-        await update_ticker(ctx, price, am_pm, date)
+        await update_ticker(
+            ctx,
+            price=price,
+            price_date_arg=date_arg,
+            price_time_of_day_arg=time_of_day_arg,
+        )
     else:
-        await fetch_ticker(ctx, date)
+        await fetch_ticker(ctx, date_arg)

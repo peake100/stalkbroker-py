@@ -7,6 +7,10 @@ from stalkbroker import models
 
 from ._fields import TzField, DateField, PatternsField
 
+
+# These schemas are created using grahamcracker, which can automatically generate
+# marshmallow schemas from dataclasses.
+
 _HandlerType = Union[marshmallow.fields.Field, marshmallow.Schema]
 _TYPE_HANDLERS: Dict[Type[Any], Type[_HandlerType]] = dict()
 

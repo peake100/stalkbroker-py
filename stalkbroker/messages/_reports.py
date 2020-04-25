@@ -7,14 +7,21 @@ from ._formatting import format_report
 
 
 def report_ticker(
-    display_name: str,
-    week_of: datetime.date,
-    ticker: models.Ticker,
-    message_date_local: datetime.date,
+    display_name: str, ticker: models.Ticker, message_time_local: datetime.datetime,
 ) -> str:
+    """
+    Build and format a ticker report to send back to discord.
+
+    :param display_name: the display name of the user who's island is being reported on.
+    :param ticker: the price ticker to report.
+    :param message_time_local: the local time the request message was sent.
+
+    :returns: formatted report.
+    """
+
     info: Dict[str, Any] = {
         "Market": display_name,
-        "Week of": week_of.strftime("%m/%d"),
+        "Week of": ticker.week_of.strftime("%m/%d/%y"),
     }
 
     if ticker.purchase_price is None:
@@ -23,7 +30,17 @@ def report_ticker(
         info["Daisey's Deal"] = ticker.purchase_price
 
     for phase in ticker:
-        if phase.date > message_date_local:
+        # We don't need to report prices that haven't happened yet
+        if phase.date > message_time_local.date():
+            break
+
+        # We don't need to report prices for the PM of a day if it is currently the AM
+        # of that day.
+        if (
+            phase.date == message_time_local.date()
+            and phase.time_of_day is models.TimeOfDay.PM
+            and message_time_local.hour < 12
+        ):
             break
 
         if phase.price is None:

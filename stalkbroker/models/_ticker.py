@@ -27,7 +27,7 @@ class Ticker:
     purchase_price: Optional[int] = None
     """The initial purchase price from Maisey day"""
 
-    phases: Dict[int, int] = field(init=False)
+    phases: Dict[int, int] = field(init=False, default_factory=dict)
     """
     An index of our known phases. We store as a map so that we aren't filling arrays
     with lots of ``None`` values when we don't have info for a phase.
@@ -35,6 +35,10 @@ class Ticker:
 
     final_pattern: Optional[Patterns] = None
     """The final pattern for the week 'None' if unknown"""
+
+    def __post_init__(self) -> None:
+        # Set up the dict where we store our phases.
+        self.phases = dict()
 
     def __iter__(self) -> Generator[PhaseInfo, None, None]:
         for phase_index in range(12):
@@ -46,10 +50,21 @@ class Ticker:
             price: Optional[int] = self.phases[phase_index]
         except KeyError:
             if phase_index > 11:
-                raise IndexError("phase index must be between 0 and 13")
+                raise IndexError("phase index must be between 0 and 11")
             price = None
 
-        return self._create_phase_info(phase_index, price)
+        return self._create_phase_info(phase_index=phase_index, price=price)
+
+    def __setitem__(self, phase_index: int, price: Optional[int]) -> None:
+        if not isinstance(price, int) and price is not None:
+            raise TypeError("price must be int or None")
+        if phase_index > 11:
+            raise IndexError("phase index must be between 0 and 13")
+
+        if price is None:
+            self.phases.pop(phase_index, None)
+        else:
+            self.phases[phase_index] = price
 
     def _create_phase_info(self, phase_index: int, price: Optional[int]) -> PhaseInfo:
         phase_info = PhaseInfo(
@@ -64,6 +79,14 @@ class Ticker:
     def phase_from_date(
         date: datetime.date, time_of_day: Optional[TimeOfDay]
     ) -> Optional[int]:
+        """
+        Get the phase index value for a given date and time of day (AM/PM).
+
+        :param date: the date of the price phase.
+        :param time_of_day: the time of day for the price phase.
+
+        :returns: either the phase index or ``None`` if this is a sunday.
+        """
         if date.weekday() == 6:
             return None
         elif time_of_day is None:
@@ -73,6 +96,13 @@ class Ticker:
 
     @staticmethod
     def phase_name(phase: int) -> str:
+        """
+        Return the name to use in reports for a given price phase.
+
+        :param phase: the index of the price phase. Use ``-1`` for sunday.
+
+        :returns: phase name.
+        """
         if phase == -1:
             return "Daisey's Deal"
 
@@ -88,9 +118,16 @@ class Ticker:
         period_str = TimeOfDay.from_phase_index(phase).name
         return day_str + " " + period_str
 
-    def date_info(
+    def for_date(
         self, date: datetime.date, time_of_day: Optional[TimeOfDay]
     ) -> PhaseInfo:
+        """
+        Return the phase info for a given date described by this ticker.
+
+        :param date: the date of the desired phase info.
+        :param time_of_day: the time of day (AM/PM of the desired phase info).
+            Can be ``None`` if this is a sunday.
+        """
         phase = self.phase_from_date(date, time_of_day)
         if phase is None:
             return PhaseInfo(
@@ -104,6 +141,14 @@ class Ticker:
     def set_price(
         self, price: int, date: datetime.date, time_of_day: Optional[TimeOfDay]
     ) -> None:
+        """
+        Set the price for a phase in the week described by the date and time of day.
+
+        :param price: Turnip price to set.
+        :param date: The date this price occurred on.
+        :param time_of_day: The time of day this price occurred on. Can be ``None`` if
+            this is a sunday
+        """
         phase = self.phase_from_date(date, time_of_day)
         if phase is None:
             self.purchase_price = price

@@ -1,15 +1,25 @@
 from ._classes import (
-    ResponseError,
-    BadValueError,
+    AbstractResponseError,
+    BulkResponseError,
+    AbstractBadValueError,
     BadTimezoneError,
-    ParseDateError,
+    ImaginaryDateError,
+    FutureDateError,
+    TimeOfDayRequiredError,
     UnknownUserTimezoneError,
+    NoBulletinChannelError,
 )
+from ._handle import handle_command_error
 
 (
-    ResponseError,
-    BadValueError,
+    AbstractResponseError,
+    BulkResponseError,
+    AbstractBadValueError,
     BadTimezoneError,
-    ParseDateError,
+    ImaginaryDateError,
     UnknownUserTimezoneError,
+    FutureDateError,
+    TimeOfDayRequiredError,
+    NoBulletinChannelError,
+    handle_command_error,
 )

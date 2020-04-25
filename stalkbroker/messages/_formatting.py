@@ -8,7 +8,15 @@ MESSAGE_DATE_FORMAT: str = "%A %b %d, %Y"
 
 
 def format_report(header: str, info: Mapping[str, Any]) -> str:
-    """Formats a report message for the broker to return. Adds random memo to end."""
+    """
+    Formats a report message for the broker to return. Adds random memo to end.
+
+    :param header: the title header for the report.
+    :param info: key, value data to be formatted as 'key: value' in report (with
+        formatting).
+
+    :returns: the formatted report.
+    """
 
     # We don't want to mutate the data that was passed in, so lets make a quick copy of
     # the info so we can add our memo.
@@ -31,6 +39,14 @@ def format_report(header: str, info: Mapping[str, Any]) -> str:
 
 
 def bulletin(header: str, info: Mapping[str, Any]) -> str:
-    """Formats a bulletin message for the broker to return. Adds random memo to end."""
+    """
+    Formats a bulletin message for the broker to return. Adds random memo to end.
+
+    :param header: the title header for the report.
+    :param info: key, value data to be formatted as 'key: value' in report (with
+        formatting).
+
+    :returns: the formatted report.
+    """
     header = header + "!!!"
     return format_report(header, info)

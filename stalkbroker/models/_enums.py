@@ -7,18 +7,9 @@ class TimeOfDay(enum.Enum):
     AM = 0
     PM = 1
 
-    @property
-    def phase_adjustment(self) -> int:
-        """
-        The amount we need to adjust the phase index by when calculating the phase
-        number from a date.
-        """
-        if self is TimeOfDay.AM:
-            return 0
-        return 1
-
     @classmethod
     def from_str(cls, value: str) -> "TimeOfDay":
+        """Return an AM/PM value from a string."""
         if value.upper() == "AM":
             return cls.AM
         else:
@@ -26,6 +17,7 @@ class TimeOfDay(enum.Enum):
 
     @classmethod
     def from_phase_index(cls, phase_index: int) -> "TimeOfDay":
+        """Return whether a phase index happens in the morning or afternoon."""
         if phase_index % 2 == 0:
             return cls.AM
         else:

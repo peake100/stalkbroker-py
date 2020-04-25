@@ -52,6 +52,8 @@ class DateField(marshmallow.fields.Field):
 
 
 class PatternsField(marshmallow.fields.Field):
+    """Used to serialize and deserialize the Pattern enum."""
+
     def _serialize(
         self, value: models.Patterns, attr: str, obj: Any, **kwargs: Any,
     ) -> str:

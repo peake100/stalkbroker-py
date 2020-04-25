@@ -6,7 +6,7 @@ from typing import List, Optional
 
 @dataclass
 class User:
-    """Holds information about the user."""
+    """User info."""
 
     id: uuid.UUID
     """Unique id for the user"""
