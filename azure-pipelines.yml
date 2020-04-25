@@ -30,7 +30,6 @@ jobs:
   # Link to the pipeline template.
   - template: python_package_main.yml@templates
     parameters:
-      publishToPypiOrg: true
       testMongo: true
       publishDocs: true
       minimumCoverage: 0.30
