@@ -119,7 +119,7 @@ def local_tz() -> datetime.tzinfo:
     integral to knowing the price phase of the user, we'll need to use it to make some
     adjustment to our datetimes.
     """
-    return pytz.timezone("America/Los_Angeles")
+    return pytz.timezone("America/New_York")
 
 
 @pytest.fixture()

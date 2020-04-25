@@ -276,7 +276,6 @@ class TestLifecycle:
         test_client2: DiscordTestClient,
         phase_dates: List[datetime.datetime],
         expected_ticker: models.Ticker,
-        local_tz: datetime.tzinfo,
         phase_index: int,
     ):
         message_time_local = phase_dates[phase_index]
@@ -394,7 +393,6 @@ class TestLifecycle:
         test_client2: DiscordTestClient,
         base_sunday: datetime.date,
         request_offset: int,
-        local_tz: datetime.tzinfo,
     ):
         """
         Test that the we can fetch the ticker as historical data when we specify the
@@ -404,9 +402,7 @@ class TestLifecycle:
         test_client.reset_test(1)
         test_client2.reset_test(1)
 
-        message_time_local = datetime.datetime(
-            year=2020, month=5, day=30, tzinfo=local_tz
-        )
+        message_time_local = datetime.datetime(year=2020, month=5, day=30)
 
         with test_client.freeze_time(message_time_local):
             # We are going to test fetching for that sunday, as well as the date for
@@ -478,7 +474,6 @@ class TestLifecycle:
         stalkdb: db.DBConnection,
         test_client: DiscordTestClient,
         phase_dates_week2: List[datetime.datetime],
-        local_tz: datetime.tzinfo,
     ) -> None:
         """
         In this test we are going to set a morning price in the afternoon of the same
@@ -488,7 +483,7 @@ class TestLifecycle:
 
         wednesday_pm_message_time = datetime.datetime.combine(
             date=expected_ticker_week2.week_of + datetime.timedelta(days=3),
-            time=datetime.time(hour=14, tzinfo=local_tz),
+            time=datetime.time(hour=14),
         )
 
         expected_phase = expected_ticker_week2[4]
@@ -546,7 +541,6 @@ class TestLifecycle:
         stalkdb: db.DBConnection,
         test_client: DiscordTestClient,
         phase_dates_week2: List[datetime.datetime],
-        local_tz: datetime.tzinfo,
         command: str,
         price: int,
     ) -> None:
@@ -557,7 +551,7 @@ class TestLifecycle:
 
         friday_pm_message_time = datetime.datetime.combine(
             date=expected_ticker_week2.week_of + datetime.timedelta(days=6),
-            time=datetime.time(hour=9, tzinfo=local_tz),
+            time=datetime.time(hour=9),
         )
 
         expected_phase = expected_ticker_week2[3]
@@ -598,7 +592,6 @@ class TestLifecycle:
         stalkdb: db.DBConnection,
         test_client: DiscordTestClient,
         base_sunday: datetime.date,
-        local_tz: datetime.tzinfo,
     ):
         """
         If we ask for a date from the April and it's january, we should fetch from
@@ -607,9 +600,7 @@ class TestLifecycle:
         """
         test_client.reset_test(1)
 
-        message_time_local = datetime.datetime(
-            year=2021, month=1, day=10, tzinfo=local_tz
-        )
+        message_time_local = datetime.datetime(year=2021, month=1, day=10)
 
         with test_client.freeze_time(message_time_local):
             request_date = base_sunday
@@ -639,7 +630,6 @@ class TestLifecycle:
         stalkdb: db.DBConnection,
         test_client: DiscordTestClient,
         base_sunday: datetime.date,
-        local_tz: datetime.tzinfo,
     ):
         """
         Check that we return an error when a user specifies a date that has not occurred
@@ -647,9 +637,7 @@ class TestLifecycle:
         """
         test_client.reset_test(1)
 
-        message_time_local = datetime.datetime(
-            year=2020, month=5, day=10, tzinfo=local_tz
-        )
+        message_time_local = datetime.datetime(year=2020, month=5, day=10)
 
         with test_client.freeze_time(message_time_local):
 
@@ -671,7 +659,6 @@ class TestLifecycle:
         stalkdb: db.DBConnection,
         test_client: DiscordTestClient,
         base_sunday: datetime.date,
-        local_tz: datetime.tzinfo,
     ):
         """
         Check that we return an error when a user tries to update a bell price for a
@@ -683,7 +670,7 @@ class TestLifecycle:
 
         tuesday_message_date = base_sunday + datetime.timedelta(days=2)
         tuesday_message_time = datetime.datetime.combine(
-            tuesday_message_date, datetime.time(hour=12), tzinfo=local_tz
+            tuesday_message_date, datetime.time(hour=12)
         )
 
         with test_client.freeze_time(tuesday_message_time):

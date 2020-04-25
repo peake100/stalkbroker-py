@@ -129,7 +129,7 @@ def get_context_local_dt(
     :return: local time for the user.
     """
     message: discord.Message = ctx.message
-    return message.created_at.replace(tzinfo=datetime.timezone.utc).astimezone(user_tz)
+    return message.created_at.astimezone(user_tz)
 
 
 def is_price_period(

@@ -3,6 +3,7 @@ import discord.client
 import uuid
 import logging
 import datetime
+import pytz
 from asynctest import patch
 from typing import Optional, List, Callable, Awaitable, Tuple, ContextManager, Type
 from types import TracebackType
@@ -112,23 +113,23 @@ class _FreezeTimeContext:
         """
         self.datetime_local: datetime.datetime = datetime_local
         # Cache the timezone as well
-        self.tz_local: datetime.tzinfo = self.datetime_local.tzinfo
+        self.tz_local: pytz.BaseTzInfo = pytz.timezone("America/New_York")
 
         # This is where we will store the context managers we are, well, managing.
-        self.freezegun: Optional[ContextManager] = None
+
         self.patch_message_time: Optional[ContextManager] = None
 
     def __enter__(self) -> None:
         """Entering this manager freezes time at the desired value."""
-        message_time_utc = self.datetime_local.replace(tzinfo=self.tz_local).astimezone(
-            datetime.timezone.utc
-        )
+        message_time_local = self.tz_local.localize(self.datetime_local, is_dst=None)
+        message_time_utc = message_time_local.astimezone(pytz.utc)
+
+        # message_time_utc = self.datetime_local.replace(tzinfo=self.tz_local).astimezone(
+        #    datetime.timezone.utc
+        # )
 
         print("message time local:", self.datetime_local)
         print("message time utc:", message_time_utc)
-
-        # Freezegun handles freezing our system time.
-        # self.freezegun = freezegun.freeze_time(message_time_utc)
 
         # However, discord messages will be getting their timestamps from the real-life
         # discord server, so we are going to monkey-patch the created_at attribute with
