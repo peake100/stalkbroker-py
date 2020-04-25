@@ -1,15 +1,7 @@
-# Islelib
+# Stalkbroker
 
-Islelib is Illuscio's python Library template. "Isle" is the naming convention
-for Illuscio code, chosen for its auditory similarity to "I-L" ("AYE_ELL"), as
-opposed to il-lib which would be phonetically sounded out as "ill".
-
-Islelib comes pre-built with a number of tools for formatting, linting and 
-testing.
-
-## Installation
-
-``pip install islelib``
+We at Nook, Nook, and Nook Investment (TM) are excited to bring you Stalkbroker, a
+discord bot for tracking you and your friends' turnip prices in Animal Crossing!
 
 ## Getting Started
 For full documentation:
