@@ -7,7 +7,7 @@ discord bot for tracking you and your friends' turnip prices in Animal Crossing!
 Using the Bot
 =============
 
-Setting Your timezone
+Setting your Timezone
 ---------------------
 
 Your timezone is important for us to correctly track the prices on your island. It might
