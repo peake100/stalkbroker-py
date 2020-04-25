@@ -26,20 +26,19 @@ REGEX_ARG_TIME_OF_DAY = re.compile(r"AM|PM", flags=re.IGNORECASE)
 
 
 async def send_bulletin_to_server(
-    ctx: discord.ext.commands.Context, server_discord_id: int, bulletin: str
+    ctx: discord.ext.commands.Context, server: discord.Guild, bulletin: str
 ) -> None:
     """
     Send a price update bulletin to the server.
 
     :param ctx: message context passed in by discord.py to the calling command.
-    :param server_discord_id: the discord id of the server we need to send the bulletin
-        to
+    :param server: the discord server we need to send the bulletin to.
     :param bulletin: the text content to send.
 
     :raises NoBulletinChannelError: When the server does not have the channel it wants
         to receive bulletins on set.
     """
-    server_info = await STALKBROKER.db.fetch_server(server_discord_id)
+    server_info = await STALKBROKER.db.fetch_server(server)
 
     guild = STALKBROKER.get_guild(server_info.discord_id)
     if server_info.bulletin_channel is None:
@@ -63,7 +62,8 @@ async def send_bulletins_to_all_user_servers(
     # Build a list of bulletins to send out.
     bulletin_coros: List[Coroutine] = list()
     for server_discord_id in user.servers:
-        bulletin_coros.append(send_bulletin_to_server(ctx, server_discord_id, bulletin))
+        server = STALKBROKER.get_guild(server_discord_id)
+        bulletin_coros.append(send_bulletin_to_server(ctx, server, bulletin))
 
     # Asynchronously send them all.
     done, _ = await asyncio.wait(bulletin_coros)
@@ -111,7 +111,7 @@ async def update_ticker(
     """
 
     message: discord.Message = ctx.message
-    stalk_user = await STALKBROKER.db.fetch_user(message.author.id, message.guild.id)
+    stalk_user = await STALKBROKER.db.fetch_user(message.author, message.guild)
 
     # If we don't know the users timezone, raise a UnknownUserTimezoneError to warn the
     # user.
@@ -184,7 +184,7 @@ async def fetch_ticker(
     except StopIteration:
         discord_user = message.author
 
-    stalk_user = await STALKBROKER.db.fetch_user(discord_user.id, message.guild.id)
+    stalk_user = await STALKBROKER.db.fetch_user(discord_user, message.guild)
     # If we don't know the user's timezone, then we won't be able to adjust the message
     # time reliably.
     if stalk_user.timezone is None:

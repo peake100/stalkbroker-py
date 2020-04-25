@@ -237,7 +237,7 @@ class TestLifecycle:
         """
         Tests that the timezone got updated correctly in the last test.
         """
-        user = await stalkdb.fetch_user(test_client.user.id, test_client.guild.id)
+        user = await stalkdb.fetch_user(test_client.user, test_client.guild)
         assert user.timezone == local_tz
 
     @mark_test
@@ -265,7 +265,7 @@ class TestLifecycle:
         Tests that the bulletin channel got correctly updated.
         """
 
-        server = await stalkdb.fetch_server(test_client.guild.id)
+        server = await stalkdb.fetch_server(test_client.guild)
         assert server.bulletin_channel == test_client.channel_bulletin.id
 
     @pytest.mark.parametrize("phase_index", range(13))
@@ -376,7 +376,7 @@ class TestLifecycle:
         database.
         """
 
-        stalk_user = await stalkdb.fetch_user(test_client.user.id, test_client.guild.id)
+        stalk_user = await stalkdb.fetch_user(test_client.user, test_client.guild)
         stored_ticker = await stalkdb.fetch_ticker(stalk_user, expected_ticker.week_of)
 
         expected_ticker.user_id = stalk_user.id
@@ -505,7 +505,7 @@ class TestLifecycle:
                 expected_confirmation, expected_channel=test_client.channel_send,
             )
 
-        stalk_user = await stalkdb.fetch_user(test_client.user.id, test_client.guild.id)
+        stalk_user = await stalkdb.fetch_user(test_client.user, test_client.guild)
         ticker_set = await stalkdb.fetch_ticker(
             stalk_user, expected_ticker_week2.week_of
         )
@@ -577,7 +577,7 @@ class TestLifecycle:
                 expected_confirmation, expected_channel=test_client.channel_send,
             )
 
-        stalk_user = await stalkdb.fetch_user(test_client.user.id, test_client.guild.id)
+        stalk_user = await stalkdb.fetch_user(test_client.user, test_client.guild)
         ticker_set = await stalkdb.fetch_ticker(
             stalk_user, expected_ticker_week2.week_of
         )

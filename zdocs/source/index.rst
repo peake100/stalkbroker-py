@@ -84,6 +84,15 @@ And the following bulletin will be sent to your server's bulletin channel:
     We're smart enough to know that Sunday is the day Daisey Mae comes into town. Your
     price that day will be set as the purchase price automatically!
 
+.. note::
+
+    If you are a member of multiple servers that stalkbroker is also a member of,
+    your bulletin will be sent to each server's bulletins channel. That way you only
+    need to type your update once and stalkbroker will take care of the rest.
+
+    Stalkbroker CANNOT see servers it is not invited to, so only servers which have
+    stalkbroker installed will get these automatic updates!
+
 Setting a Past Turnip Price
 ---------------------------
 

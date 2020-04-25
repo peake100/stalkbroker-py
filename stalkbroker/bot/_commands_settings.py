@@ -29,7 +29,7 @@ async def set_user_timezone(ctx: discord.ext.commands.Context, zone_arg: str) ->
         raise errors.BadTimezoneError(ctx, zone_arg)
     else:
         # Otherwise update the timezone then send a confirmation.
-        await STALKBROKER.db.update_timezone(ctx.author.id, ctx.guild.id, converted_tz)
+        await STALKBROKER.db.update_timezone(ctx.author, ctx.guild, converted_tz)
         await ctx.send(messages.confirmation_timezone(ctx.author, converted_tz))
 
 
@@ -44,5 +44,5 @@ async def set_bulletins_channel(ctx: discord.ext.commands.Context) -> None:
     :param ctx: message context passed in by discord.py. The channel on this context
         is used as the bulletin channel.
     """
-    await STALKBROKER.db.server_set_bulletin_channel(ctx.guild.id, ctx.channel.id)
+    await STALKBROKER.db.server_set_bulletin_channel(ctx.guild, ctx.channel)
     await ctx.send(messages.confirmation_bulletins_channel(ctx.author))
