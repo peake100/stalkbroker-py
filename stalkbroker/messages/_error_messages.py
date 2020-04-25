@@ -65,8 +65,8 @@ def error_bad_timezone(user: discord.User, bad_tz: str) -> str:
     :returns: the formatted message.
     """
     return (
-        f"{error_bad_value(user, 'timezone', bad_tz)} Try a timezone from: "
-        + TIMEZONE_REFERENCE_URL
+        f"{error_bad_value(user, 'timezone', bad_tz)} Try a timezone from the "
+        f"'TZ database name' here: TIMEZONE_REFERENCE_URL"
     )
 
 
