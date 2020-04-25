@@ -171,6 +171,22 @@ class DBConnection:
         update["$set"]["bulletin_channel"] = channel.id
         return await self._upsert_server(query, update)
 
+    async def server_set_megaphone_threshold(
+        self, server: discord.Guild, price_threshold: int,
+    ) -> models.Server:
+        """
+        Set the threshold at which the server mentions everyone in a bulletin.
+
+        :param server: the server to set the threshold for.
+        :param price_threshold: the price point requirement.
+
+        :returns: the updated server data.
+        """
+        query = _query_discord_id(server.id)
+        update = _new_update()
+        update["$set"]["megaphone_threshold"] = price_threshold
+        return await self._upsert_server(query, update)
+
     @staticmethod
     def _add_server_to_user_update(
         update: _UpdateType, server: Optional[discord.Guild]

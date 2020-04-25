@@ -15,3 +15,5 @@ class Server:
     """discord id of the server"""
     bulletin_channel: Optional[int] = None
     """discord id of a server channel to send price bulletins to"""
+    megaphone_threshold: int = 400
+    """the buy threshold at which we want to @here"""
