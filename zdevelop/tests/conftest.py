@@ -208,10 +208,10 @@ def create_expected_ticker(dates: List[datetime.datetime]):
     ticker[2] = 103
     ticker[3] = 104
     ticker[4] = 105
-    ticker[5] = 106
-    ticker[6] = 107
+    ticker[5] = 449
+    ticker[6] = 450
     ticker[7] = 108
-    ticker[8] = 109
+    ticker[8] = 560
     ticker[9] = 110
     ticker[10] = 111
     ticker[11] = 112

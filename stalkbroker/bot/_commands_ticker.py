@@ -28,7 +28,7 @@ REGEX_ARG_TIME_OF_DAY = re.compile(r"AM|PM", flags=re.IGNORECASE)
 
 
 async def send_bulletin_to_server(
-    ctx: discord.ext.commands.Context, server: discord.Guild, bulletin: str
+    ctx: discord.ext.commands.Context, server: discord.Guild, bulletin: str, price: int,
 ) -> None:
     """
     Send a price update bulletin to the server.
@@ -36,13 +36,20 @@ async def send_bulletin_to_server(
     :param ctx: message context passed in by discord.py to the calling command.
     :param server: the discord server we need to send the bulletin to.
     :param bulletin: the text content to send.
+    :param price: the current price.
 
     :raises NoBulletinChannelError: When the server does not have the channel it wants
         to receive bulletins on set.
     """
     server_info = await STALKBROKER.db.fetch_server(server)
 
+    # If the price is bellow the minimum threshold for the server, then we can abort.
+    if price < server_info.bulletin_minimum:
+        return
+
     guild = STALKBROKER.get_guild(server_info.discord_id)
+    # If the server has not set a bulletin channel, raise an error to be returned to
+    # the user.
     if server_info.bulletin_channel is None:
         raise errors.NoBulletinChannelError(ctx=ctx, guild=guild)
 
@@ -51,7 +58,7 @@ async def send_bulletin_to_server(
 
 
 async def send_bulletins_to_all_user_servers(
-    ctx: discord.ext.commands.Context, user: models.User, bulletin: str
+    ctx: discord.ext.commands.Context, user: models.User, bulletin: str, price: int,
 ) -> None:
     """
     For a given user, send a price update bulletin to every server they are a part of
@@ -60,12 +67,13 @@ async def send_bulletins_to_all_user_servers(
     :param ctx: message context passed in by discord.py to the calling command.
     :param user: The stalkbroker user data for the user with the price update.
     :param bulletin: the text content to send.
+    :param price: the current price.
     """
     # Build a list of bulletins to send out.
     bulletin_coros: List[Coroutine] = list()
     for server_discord_id in user.servers:
         server = STALKBROKER.get_guild(server_discord_id)
-        bulletin_coros.append(send_bulletin_to_server(ctx, server, bulletin))
+        bulletin_coros.append(send_bulletin_to_server(ctx, server, bulletin, price))
 
     # Asynchronously send them all.
     done, _ = await asyncio.wait(bulletin_coros)
@@ -145,17 +153,21 @@ async def update_ticker(
     )
     await confirm_execution(ctx, reactions)
 
-    # Next, If this data is for the current sale period on their island, we blast an
-    # bulletin to all the servers this user is a part of. We don't want to send a
-    # bulletin if the user is updating past prices.
-    if date_utils.is_price_period(message_time_local, price_date, price_time_of_day):
-        bulletin = messages.bulletin_price_update(
-            display_name=ctx.author.display_name,
-            price=price,
-            date_local=price_date,
-            time_of_day=price_time_of_day,
-        )
-        await send_bulletins_to_all_user_servers(ctx, stalk_user, bulletin)
+    if not date_utils.is_price_period(
+        message_time_local, price_date, price_time_of_day
+    ):
+        return
+
+    if price_date.weekday() == date_utils.SUNDAY:
+        return
+
+    bulletin = messages.bulletin_price_update(
+        discord_user=ctx.author,
+        price=price,
+        date_local=price_date,
+        time_of_day=price_time_of_day,
+    )
+    await send_bulletins_to_all_user_servers(ctx, stalk_user, bulletin, price)
 
 
 async def fetch_ticker(

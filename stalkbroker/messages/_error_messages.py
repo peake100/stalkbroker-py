@@ -17,7 +17,9 @@ def error_unknown_timezone(user: discord.User) -> str:
     return (
         f"Uh-oh, {user.mention}! I need to file some paperwork with the Inter-island"
         f" Revenue Service. Please let me know your timezone by typing: `$timezone"
-        f" <your timezone>`."
+        f" your-timezone`. Example: $timezone America/Los_Angeles."
+        f"\n\nYou can find a list of timezones in the 'TZ database name' column here:"
+        f" {TIMEZONE_REFERENCE_URL}"
     )
 
 
@@ -66,7 +68,7 @@ def error_bad_timezone(user: discord.User, bad_tz: str) -> str:
     """
     return (
         f"{error_bad_value(user, 'timezone', bad_tz)} Try a timezone from the "
-        f"'TZ database name' here: {TIMEZONE_REFERENCE_URL}"
+        f"'TZ database name' column here: {TIMEZONE_REFERENCE_URL}"
     )
 
 

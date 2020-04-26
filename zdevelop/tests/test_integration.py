@@ -9,7 +9,7 @@ from asynctest import patch
 from dataclasses import dataclass, field
 from typing import Tuple, List, Optional, Mapping, Callable
 
-from stalkbroker import bot, db, messages, models
+from stalkbroker import bot, db, messages, models, defaults
 
 from zdevelop.tests.client import DiscordTestClient
 
@@ -41,14 +41,23 @@ async def verify_collection_indexes(
         expected_index.verify_index()
 
 
-def ticker_report_remove_memo(report: str) -> str:
+def ticker_report_remove_memo(report: str, bulletin: bool = False) -> str:
     # We need to remove the memo, since it's random, and check that
     # the rest of the message is there
     report_lines = report.split("\n")
-    memo = report_lines[-1]
-    report = "\n".join(report_lines[:-1])
+
+    if not bulletin:
+        memo_line = -1
+    else:
+        memo_line = -2
+
+    memo = report_lines[memo_line]
+    report = "\n".join(report_lines[:memo_line])
 
     assert memo.startswith("**Memo**:")
+
+    if bulletin:
+        assert report_lines[-1] == "@everyone"
 
     return report
 
@@ -155,6 +164,7 @@ class TestLifecycle:
         # Check that the discord id is correct
         assert isinstance(server_data["id"], uuid.UUID)
         assert server_data["discord_id"] == test_client.guild.id
+        assert server_data["bulletin_minimum"] == defaults.BULLETIN_MINIMUM
 
     @mark_test
     async def test_users_added(
@@ -245,7 +255,7 @@ class TestLifecycle:
         """
         test_client.reset_test(expected_messages=0, expected_reactions=2)
 
-        await test_client.send_bulletin("$bulletins_here")
+        await test_client.send_bulletin("$bulletins here")
         await test_client.wait()
 
         test_client.assert_received_confirmation(
@@ -262,6 +272,22 @@ class TestLifecycle:
 
         server = await stalkdb.fetch_server(test_client.guild)
         assert server.bulletin_channel == test_client.channel_bulletin.id
+
+    @mark_test
+    async def test_set_bulletin_minimum(
+        self, stalkdb: db.DBConnection, test_client: DiscordTestClient
+    ):
+        """
+        Tests sending the command to set the bulletin channel.
+        """
+        test_client.reset_test(expected_messages=0, expected_reactions=2)
+
+        await test_client.send_bulletin("$bulletins minimum 450")
+        await test_client.wait()
+
+        test_client.assert_received_confirmation(
+            [messages.REACTIONS.CONFIRM_BULLETIN_MINIMUM]
+        )
 
     @pytest.mark.parametrize("phase_index", range(13))
     @mark_test
@@ -294,26 +320,41 @@ class TestLifecycle:
                 message_datetime_local=message_time_local,
             )
 
+            if price >= 450 and message_time_local.date().weekday() != 6:
+                expected_messages = 1
+            else:
+                expected_messages = 0
+
             # Now lets test setting the price
             test_client.reset_test(
-                expected_messages=1, expected_reactions=len(expected_reactions) + 1
+                expected_messages=expected_messages,
+                expected_reactions=len(expected_reactions) + 1,
             )
 
             await test_client.send(f"$ticker {price}")
             await test_client.wait()
 
-            # And also check that the bulletin went out to the correct channel
-            expected_bulletin = messages.bulletin_price_update(
-                display_name=test_client.user.display_name,
-                price=price,
-                date_local=message_time_local.date(),
-                time_of_day=time_of_day,
-            )
-            expected_bulletin = ticker_report_remove_memo(expected_bulletin)
+            if expected_messages == 1:
+                # And also check that the bulletin went out to the correct channel
+                expected_bulletin = messages.bulletin_price_update(
+                    discord_user=test_client.user,
+                    price=price,
+                    date_local=message_time_local.date(),
+                    time_of_day=time_of_day,
+                )
+                expected_bulletin = ticker_report_remove_memo(
+                    expected_bulletin, bulletin=True
+                )
 
-            test_client.assert_received_message(
-                expected_bulletin, test_client.channel_bulletin, partial=True,
-            )
+                test_client.assert_received_message(
+                    expected_bulletin, test_client.channel_bulletin, partial=True,
+                )
+
+                assert test_client.messages_received[0].mention_everyone
+                assert (
+                    test_client.messages_received[0].mentions[0].id
+                    == test_client.user.id
+                )
 
             # Once we validate that, let's test fetching the ticker via message
             test_client.reset_test(1, expected_reactions=0)
@@ -474,6 +515,9 @@ class TestLifecycle:
         )
 
         expected_phase = expected_ticker_week2[4]
+        # Lets test that updating hostorical data does not trigger a bulletin
+        expected_phase.price = 800
+
         expected_reactions = messages.REACTIONS.price_update_reactions(
             price_date=expected_phase.date,
             price_time_of_day=models.TimeOfDay.AM,
@@ -518,7 +562,7 @@ class TestLifecycle:
             ("$ticker 4/14 PM {} bells", 211),
             ("$ticker 4/14 {} bells PM", 212),
             # Make sure we can parse dates with years
-            ("$ticker 4/14/2020 {} bells PM", 212),
+            ("$ticker 4/14/2020 {} bells PM", 213),
         ],
     )
     @mark_test

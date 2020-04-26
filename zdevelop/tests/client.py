@@ -104,6 +104,9 @@ def generate_on_message(
             return
 
         test_client.messages_received.append(message)
+        if test_client.test_expected_count_received == 0:
+            raise IOError("Received an unexpected message")
+
         if (
             len(test_client.messages_received)
             >= test_client.test_expected_count_received
@@ -278,6 +281,9 @@ class DiscordTestClient:
 
             for i, message in enumerate(self.messages_sent):
                 message = discord.utils.get(self.client.cached_messages, id=message.id)
+                if message is None:
+                    continue
+
                 self.messages_sent[i] = message
 
                 count += len(message.reactions)

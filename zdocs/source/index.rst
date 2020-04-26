@@ -53,19 +53,27 @@ To set your current turnip price, use the following command:
 
 .. code-block:: text
 
-    $ticker 134
+    $ticker 205
 
-We'll add a few reactions to your post to let we know we heard you, and the following
-bulletin will be sent to your server's bulletin channel:
+We'll add a few reactions to your post to let we know we heard you.
+
+If your bell price is high, the following bulletin will be sent to your server's
+bulletin channel:
 
 .. code-block:: text
 
     The Market Is Moving!!!
-    Market: Billy (Zalack) 🍊 - Verune
-    The Nooks' Offer: 134
+    Market: @Billy (Zalack) 🍊 - Verune
+    The Nooks' Offer: 205
     Date: Saturday Apr 24, 2020
     Period: PM
     Memo: 401K through the vegetable way.
+    @everyone
+
+.. note::
+
+    The default threshold for sending out a bulletin is a sale price of 200 bells.
+    This threshold is configurable by the server admins.
 
 .. note::
 
@@ -178,18 +186,29 @@ To install the bot, make sure you have permissions to add bots to your server, t
 Congratulations! Your server now has cutting-edge, best-in-class investment support
 from Nook, Nook, and Nook Investment.
 
-After that, you just need to set the channel you want price bulletins to come into, by
-typing this in the desired channel:
+Configuring the Bot
+===================
+
+Bulletin Channel
+----------------
+
+To set the channel you want price bulletins to come into, type this in the desired
+channel:
 
 .. code-block:: text
 
-    $bulletins_here
+    $bulletins here
 
-Stalkbroker will send you the following confirmation:
+Bulletin Minimum
+----------------
+
+To change the minimum bell price required for bulletins, invoke this command in any
+channel:
 
 .. code-block:: text
 
-    Noted, @Billy (Zalack) 🍊 - Verune! We'll ring the bell here when there's news about
-    bells out there.
+    $bulletins minimum 310
+
+Now bulletins will only be sent when a sale price is at or above 310 bells.
 
 And that's it! Let's make some bells together.
