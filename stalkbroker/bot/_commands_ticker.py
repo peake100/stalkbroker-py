@@ -3,8 +3,10 @@ import re
 import asyncio
 from typing import Optional, Tuple, List, Coroutine
 
-from ._bot import STALKBROKER
 from stalkbroker import date_utils, errors, messages, models
+
+from ._bot import STALKBROKER
+from ._commands_utils import confirm_execution
 
 
 _IMPORT_HELPER = None
@@ -135,16 +137,14 @@ async def update_ticker(
         price=price,
     )
 
-    confirmation_message = messages.confirmation_ticker_update(
-        user=message.author,
-        price=price,
+    # Add confirmation reactions to the original message.
+    reactions = messages.REACTIONS.price_update_reactions(
         price_date=price_date,
         price_time_of_day=price_time_of_day,
         message_datetime_local=message_time_local,
     )
+    await confirm_execution(ctx, reactions)
 
-    # First we confirm with the user that we received their data
-    await ctx.send(confirmation_message)
     # Next, If this data is for the current sale period on their island, we blast an
     # bulletin to all the servers this user is a part of. We don't want to send a
     # bulletin if the user is updating past prices.
