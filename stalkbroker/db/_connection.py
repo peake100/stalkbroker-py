@@ -10,7 +10,7 @@ import discord
 from typing import Optional, Dict, Any, DefaultDict, Mapping
 from collections import defaultdict
 
-from stalkbroker import models, schemas, date_utils, constants
+from stalkbroker import models, schemas, date_utils
 
 
 # The schema used to serialize and deserialize the Server model.
