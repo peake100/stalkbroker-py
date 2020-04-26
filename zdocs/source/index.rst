@@ -25,12 +25,7 @@ Like so:
 
     $timezone America/Los_Angeles
 
-Stalkbroker will confirm it heard you:
-
-.. code-block:: text
-
-    I've made a note, @Billy (Zalack) 🍊 - Verune! You're growing your portfolio on
-    America/Los_Angeles time
+Stalkbroker will confirm it heard you with a few reactions!
 
 Timezones names are very a particular, you can find your timezone name
 `here <https://en.wikipedia.org/wiki/List_of_tz_database_time_zones>`_, in the
@@ -60,15 +55,8 @@ To set your current turnip price, use the following command:
 
     $ticker 134
 
-You will get the following response:
-
-.. code-block:: text
-
-    Great, @Billy (Zalack) 🍊 - Verune! I'll add the Nooks' offer of 134 bells on
-    Saturday Apr 24, 2020 (PM) to you island's historical data and alert everyone to
-    this exciting opportunity!
-
-And the following bulletin will be sent to your server's bulletin channel:
+We'll add a few reactions to your post to let we know we heard you, and the following
+bulletin will be sent to your server's bulletin channel:
 
 .. code-block:: text
 
@@ -103,13 +91,6 @@ Not to fret! You can type:
 
     $ticker 121 AM
 
-And you'll get the following message:
-
-.. code-block:: text
-
-    Great, @Billy (Zalack) 🍊 - Verune! I'll add the Nooks' offer of 121 bells on Friday
-    Apr 24, 2020 (AM) to you island's historical data.
-
 In this case, *a bulletin will not go out to your server*, as it is not a current,
 actionable price. The market doesn't move on yesterday's news, as we say. However, it's
 still worth setting so you can pull up a more complete ticker later.
@@ -137,7 +118,7 @@ your ticker, the more accurate the projections will be!
 .. note::
 
     When setting the price for a sunday, Stalkbroker knows this is the the purchase
-    price. Additionally, when retoractively setting past price, there is no need to
+    price. Additionally, when retroactively setting past price, there is no need to
     include the AM / PM value for a sunday, though including it will not throw an error.
 
 
