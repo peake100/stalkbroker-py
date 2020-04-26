@@ -179,9 +179,9 @@ class TestLifecycle:
         Tests that we throw  an error if we try to update the ticker without setting
         a timezone.
         """
-        test_client.reset_test(expected_message_count=1)
+        test_client.reset_test(expected_messages=1, expected_reactions=0)
 
-        await test_client.channel_send.send("$ticker 34")
+        await test_client.send("$ticker 34")
         await test_client.event_messages_received.wait()
 
         assert len(test_client.messages_received) == 1
@@ -197,10 +197,10 @@ class TestLifecycle:
         Tests that we thrown an error if we try to update the ticker without setting
         a timezone.
         """
-        test_client.reset_test(expected_message_count=1)
+        test_client.reset_test(expected_messages=1, expected_reactions=0)
 
-        await test_client.channel_send.send("$timezone blahblah")
-        await test_client.event_messages_received.wait()
+        await test_client.send("$timezone blahblah")
+        await test_client.wait()
 
         assert len(test_client.messages_received) == 1
 
@@ -216,16 +216,13 @@ class TestLifecycle:
         """
         Tests that we can set the timezone for ourselves
         """
-        test_client.reset_test(expected_message_count=1)
+        test_client.reset_test(expected_messages=1, expected_reactions=2)
 
-        await test_client.channel_send.send(f"$timezone {local_tz.zone}")
-        await test_client.event_messages_received.wait()
+        await test_client.send(f"$timezone {local_tz.zone}")
+        await test_client.wait()
 
         assert len(test_client.messages_received) == 1
-        test_client.assert_received_message(
-            messages.confirmation_timezone(test_client.user, local_tz),
-            expected_channel=test_client.channel_send,
-        )
+        test_client.assert_received_confirmation([messages.REACTIONS.CONFIRM_TIMEZONE])
 
     @mark_test
     async def test_set_timezone_db(
@@ -247,14 +244,13 @@ class TestLifecycle:
         """
         Tests sending the command to set the bulletin channel.
         """
-        test_client.reset_test(1)
+        test_client.reset_test(expected_messages=1, expected_reactions=2)
 
         await test_client.channel_bulletin.send("$bulletins_here")
-        await test_client.event_messages_received.wait()
+        await test_client.wait()
 
-        test_client.assert_received_message(
-            messages.confirmation_bulletins_channel(test_client.user),
-            expected_channel=test_client.channel_bulletin,
+        test_client.assert_received_confirmation(
+            [messages.REACTIONS.CONFIRM_BULLETIN_CHANNEL]
         )
 
     @mark_test
@@ -288,31 +284,24 @@ class TestLifecycle:
 
         # Freeze time at the date we want so we are sending the message "now".
         with test_client.freeze_time(message_time_local):
-
-            # Now lets test setting the price
-            test_client.reset_test(2)
-
-            await test_client.channel_send.send(f"$ticker {price}")
-
             if message_time_local.hour < 12:
                 time_of_day = models.TimeOfDay.AM
             else:
                 time_of_day = models.TimeOfDay.PM
 
-            confirmation_expected = messages.confirmation_ticker_update(
-                user=test_client.user,
-                price=price,
+            expected_reactions = messages.REACTIONS.price_update_reactions(
                 price_date=message_time_local.date(),
                 price_time_of_day=time_of_day,
                 message_datetime_local=message_time_local,
             )
 
-            await test_client.event_messages_received.wait()
-
-            # Check that we have received the confirmation
-            test_client.assert_received_message(
-                confirmation_expected, expected_channel=test_client.channel_send,
+            # Now lets test setting the price
+            test_client.reset_test(
+                expected_messages=1, expected_reactions=len(expected_reactions) + 1
             )
+
+            await test_client.send(f"$ticker {price}")
+            await test_client.wait()
 
             # And also check that the bulletin went out to the correct channel
             expected_bulletin = messages.bulletin_price_update(
@@ -328,13 +317,13 @@ class TestLifecycle:
             )
 
             # Once we validate that, let's test fetching the ticker via message
-            test_client.reset_test(1)
-            test_client2.reset_test(1)
+            test_client.reset_test(1, expected_reactions=0)
+            test_client2.reset_test(1, expected_reactions=0)
 
-            await test_client.channel_send.send("$ticker")
+            await test_client.send("$ticker")
 
-            await test_client.event_messages_received.wait()
-            await test_client2.event_messages_received.wait()
+            await test_client.wait()
+            await test_client2.wait()
 
             expected_report = messages.report_ticker(
                 display_name=test_client.user.display_name,
@@ -351,12 +340,12 @@ class TestLifecycle:
 
             # Once we validate that, let's test fetching the ticker via mentioning
             # the user's name
-            test_client.reset_test(1)
-            test_client2.reset_test(1)
+            test_client.reset_test(1, expected_reactions=0)
+            test_client2.reset_test(1, expected_reactions=0)
 
-            await test_client2.channel_send.send(f"$ticker {test_client.user.mention}")
-            await test_client.event_messages_received.wait()
-            await test_client2.event_messages_received.wait()
+            await test_client2.send(f"$ticker {test_client.user.mention}")
+            await test_client.wait()
+            await test_client2.wait()
 
             test_client2.assert_received_message(
                 expected_report,
@@ -399,8 +388,8 @@ class TestLifecycle:
         date. We are no longer freezing time, so the ticker we filled our earlier is now
         from a past week
         """
-        test_client.reset_test(1)
-        test_client2.reset_test(1)
+        test_client.reset_test(1, expected_reactions=0)
+        test_client2.reset_test(1, expected_reactions=0)
 
         message_time_local = datetime.datetime(year=2020, month=5, day=30)
 
@@ -430,8 +419,8 @@ class TestLifecycle:
             )
 
             # Now lets try fetching with a mention
-            test_client.reset_test(1)
-            test_client2.reset_test(1)
+            test_client.reset_test(1, expected_reactions=0)
+            test_client2.reset_test(1, expected_reactions=0)
 
             command = (
                 f"$ticker {request_date.strftime('%m/%d')}"
@@ -449,8 +438,8 @@ class TestLifecycle:
             )
 
             # Lastly lets try putting the mention first
-            test_client.reset_test(1)
-            test_client2.reset_test(1)
+            test_client.reset_test(1, expected_reactions=0)
+            test_client2.reset_test(1, expected_reactions=0)
 
             command = (
                 f"$ticker {test_client.user.mention}"
@@ -479,7 +468,7 @@ class TestLifecycle:
         In this test we are going to set a morning price in the afternoon of the same
         day using the "AM" argument.
         """
-        test_client.reset_test(1)
+        test_client.reset_test(expected_messages=0, expected_reactions=0)
 
         wednesday_pm_message_time = datetime.datetime.combine(
             date=expected_ticker_week2.week_of + datetime.timedelta(days=3),
@@ -493,17 +482,6 @@ class TestLifecycle:
 
             await test_client.channel_send.send(command)
             await test_client.event_messages_received.wait()
-
-            expected_confirmation = messages.confirmation_ticker_update(
-                test_client.user,
-                expected_phase.price,
-                expected_phase.date,
-                price_time_of_day=models.TimeOfDay.AM,
-                message_datetime_local=wednesday_pm_message_time,
-            )
-            test_client.assert_received_message(
-                expected_confirmation, expected_channel=test_client.channel_send,
-            )
 
         stalk_user = await stalkdb.fetch_user(test_client.user, test_client.guild)
         ticker_set = await stalkdb.fetch_ticker(
@@ -547,14 +525,20 @@ class TestLifecycle:
         """
         In this test we are setting the price for Tuesday PM during Saturday AM.
         """
-        test_client.reset_test(1)
-
         friday_pm_message_time = datetime.datetime.combine(
             date=expected_ticker_week2.week_of + datetime.timedelta(days=6),
             time=datetime.time(hour=9),
         )
 
         expected_phase = expected_ticker_week2[3]
+        expected_reactions = messages.REACTIONS.price_update_reactions(
+            price_date=expected_phase.date,
+            price_time_of_day=models.TimeOfDay.PM,
+            message_datetime_local=friday_pm_message_time,
+        )
+
+        test_client.reset_test(0, expected_reactions=len(expected_reactions) + 1)
+
         # Set our unique price for this test
         expected_phase.price = price
 
@@ -564,18 +548,9 @@ class TestLifecycle:
             command = command.format(price)
 
             await test_client.channel_send.send(command)
-            await test_client.event_messages_received.wait()
+            await test_client.wait()
 
-            expected_confirmation = messages.confirmation_ticker_update(
-                test_client.user,
-                expected_phase.price,
-                expected_phase.date,
-                price_time_of_day=models.TimeOfDay.PM,
-                message_datetime_local=friday_pm_message_time,
-            )
-            test_client.assert_received_message(
-                expected_confirmation, expected_channel=test_client.channel_send,
-            )
+            assert test_client.assert_received_confirmation(expected_reactions)
 
         stalk_user = await stalkdb.fetch_user(test_client.user, test_client.guild)
         ticker_set = await stalkdb.fetch_ticker(
@@ -635,7 +610,7 @@ class TestLifecycle:
         Check that we return an error when a user specifies a date that has not occurred
         yet.
         """
-        test_client.reset_test(1)
+        test_client.reset_test(1, 0)
 
         message_time_local = datetime.datetime(year=2020, month=5, day=10)
 
@@ -664,7 +639,7 @@ class TestLifecycle:
         Check that we return an error when a user tries to update a bell price for a
         past date without specifying a time of day.
         """
-        test_client.reset_test(1)
+        test_client.reset_test(1, 0)
 
         monday_arg_date = base_sunday + datetime.timedelta(days=1)
 

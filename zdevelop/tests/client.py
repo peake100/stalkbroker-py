@@ -5,8 +5,11 @@ import logging
 import datetime
 import pytz
 from asynctest import patch
-from typing import Optional, List, Callable, Awaitable, Tuple, ContextManager, Type
+from typing import Optional, List, Callable, Awaitable, Tuple, ContextManager, Type, Coroutine, Union
 from types import TracebackType
+
+
+from stalkbroker import messages
 
 
 TEST_SERVER_ID = 702021272405803050
@@ -87,15 +90,16 @@ def generate_on_message(
                 f"\n{message.content}\n\n"
             )
 
-        if message.author.id != broker_id:
+        if message.author.id == :
             return
 
         test_client.messages_received.append(message)
         if (
             len(test_client.messages_received)
-            >= test_client.test_expected_message_count
+            >= test_client.test_expected_count_received
             and not test_client.event_messages_received.is_set()
         ):
+            print("messages received!")
             test_client.event_messages_received.set()
 
     return on_message
@@ -123,10 +127,6 @@ class _FreezeTimeContext:
         """Entering this manager freezes time at the desired value."""
         message_time_local = self.tz_local.localize(self.datetime_local, is_dst=None)
         message_time_utc = message_time_local.astimezone(pytz.utc)
-
-        # message_time_utc = self.datetime_local.replace(tzinfo=self.tz_local).astimezone(
-        #    datetime.timezone.utc
-        # )
 
         print("message time local:", self.datetime_local)
         print("message time utc:", message_time_utc)
@@ -181,10 +181,14 @@ class DiscordTestClient:
         # Events
         self.event_ready: asyncio.Event = asyncio.Event()
         self.event_messages_received: asyncio.Event = asyncio.Event()
+        self.event_reactions_received: asyncio.Event = asyncio.Event()
+
         self.messages_received: List[discord.Message] = list()
+        self.messages_sent: List[discord.Message] = list()
 
         # Test configuration
-        self.test_expected_message_count: int = 0
+        self.test_expected_count_received: int = 0
+        self.test_expected_count_reactions: int = 0
 
         # Create client events
         self.client.event(generate_on_ready(self, init_from))
@@ -227,16 +231,63 @@ class DiscordTestClient:
 
         return
 
-    def reset_test(self, expected_message_count: int) -> None:
+    def reset_test(self, expected_messages: int, expected_reactions: int) -> None:
         """
         Resets the message list and count when we are moving on to a new set of messages
         we need to listen for.
         """
-        self.test_expected_message_count = expected_message_count
-        self.messages_received = list()
-        self.event_messages_received.clear()
+        self.test_expected_count_received = expected_messages
+        self.test_expected_count_reactions = expected_reactions
 
-    def freeze_time(self, datetime_local: datetime.datetime) -> _FreezeTimeContext:
+        self.messages_received = list()
+
+        self.event_messages_received.clear()
+        self.event_reactions_received.clear()
+
+        if expected_reactions > 0:
+            asyncio.create_task(self._wait_for_reaction())
+
+    async def send(self, content: str) -> None:
+        message: discord.Message = await self.channel_send.send(content)
+        self.messages_sent.append(message)
+
+    async def _wait_for_reaction(self) -> None:
+
+        while True:
+
+            count = 0
+
+            for i, message in enumerate(self.messages_sent):
+                message = discord.utils.get(self.client.cached_messages, id=message.id)
+                self.messages_sent[i] = message
+
+                print("REACTIONS:", message.reactions)
+                count += len(message.reactions)
+
+                if count >= self.test_expected_count_reactions:
+                    self.event_reactions_received.set()
+                    print("reactions found")
+                    return
+
+            await asyncio.sleep(0.1)
+
+    async def wait(self):
+        """
+        Blocks until all expected messages and reactions are received
+        """
+        coros: List[Coroutine] = list()
+
+        if self.test_expected_count_received > 0:
+            coros.append(self.event_messages_received.wait())
+
+        if self.test_expected_count_reactions > 0:
+            coros.append(self.event_reactions_received.wait())
+
+        await asyncio.gather(*coros)
+        print("test done")
+
+    @staticmethod
+    def freeze_time(datetime_local: datetime.datetime) -> _FreezeTimeContext:
         return _FreezeTimeContext(datetime_local)
 
     @staticmethod
@@ -282,3 +333,16 @@ class DiscordTestClient:
                 print("received message:", message.content)
 
             raise ValueError(f"message not found: {expected_message}")
+
+    def assert_received_confirmation(self, additional_reactions: List[str]) -> None:
+
+        all_received: List[str] = list()
+        for message in self.messages_sent:
+            all_received.extend(message.reactions)
+
+        assert messages.REACTIONS.CONFIRM_PRIMARY in all_received
+
+        for reaction in additional_reactions:
+            assert reaction in all_received
+
+        return

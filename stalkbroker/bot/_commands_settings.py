@@ -4,6 +4,7 @@ import pytz.exceptions
 
 from stalkbroker import date_utils, errors, messages
 from ._bot import STALKBROKER
+from ._commands_utils import confirm_execution
 
 
 _IMPORT_HELPER = None
@@ -30,7 +31,8 @@ async def set_user_timezone(ctx: discord.ext.commands.Context, zone_arg: str) ->
     else:
         # Otherwise update the timezone then send a confirmation.
         await STALKBROKER.db.update_timezone(ctx.author, ctx.guild, converted_tz)
-        await ctx.send(messages.confirmation_timezone(ctx.author, converted_tz))
+        # Let's add a four-o'clock emoji for flavor
+        await confirm_execution(ctx, [messages.REACTIONS.CONFIRM_TIMEZONE])
 
 
 # TODO: put this behind some sort of role check
@@ -45,4 +47,4 @@ async def set_bulletins_channel(ctx: discord.ext.commands.Context) -> None:
         is used as the bulletin channel.
     """
     await STALKBROKER.db.server_set_bulletin_channel(ctx.guild, ctx.channel)
-    await ctx.send(messages.confirmation_bulletins_channel(ctx.author))
+    await confirm_execution(ctx, [messages.REACTIONS.CONFIRM_BULLETIN_CHANNEL])
