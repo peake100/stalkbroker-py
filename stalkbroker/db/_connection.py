@@ -10,7 +10,7 @@ import discord
 from typing import Optional, Dict, Any, DefaultDict, Mapping
 from collections import defaultdict
 
-from stalkbroker import models, schemas, date_utils
+from stalkbroker import models, schemas, date_utils, defaults
 
 
 # The schema used to serialize and deserialize the Server model.
@@ -122,6 +122,13 @@ class DBConnection:
         update["$setOnInsert"]["id"] = uuid.uuid4()
         update["$setOnInsert"]["discord_id"] = query["discord_id"]
 
+        # We want to set the default bulletin minimum, but only if it is not in the
+        # $set directive yet. We need to check if $set has been added at all first so
+        # we don't create it by accident when we access it to check for
+        # bulletin_minimum.
+        if "$set" not in update or "bulletin_minimum" not in update["$set"]:
+            update["$setOnInsert"]["bulletin_minimum"] = defaults.BULLETIN_MINIMUM
+
         server_data = await self.collections.servers.find_one_and_update(
             query, update, upsert=True, return_document=pymongo.ReturnDocument.AFTER,
         )
@@ -169,6 +176,22 @@ class DBConnection:
         query = _query_discord_id(server.id)
         update = _new_update()
         update["$set"]["bulletin_channel"] = channel.id
+        return await self._upsert_server(query, update)
+
+    async def server_set_bulletin_minimum(
+        self, server: discord.Guild, price_threshold: int,
+    ) -> models.Server:
+        """
+        Set the threshold at which the server send out a price bulletin.
+
+        :param server: the server to set the threshold for.
+        :param price_threshold: the price point requirement.
+
+        :returns: the updated server data.
+        """
+        query = _query_discord_id(server.id)
+        update = _new_update()
+        update["$set"]["bulletin_minimum"] = price_threshold
         return await self._upsert_server(query, update)
 
     @staticmethod

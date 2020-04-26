@@ -20,6 +20,7 @@ class _Reactions:
 
     CONFIRM_TIMEZONE = "🕓"
     CONFIRM_BULLETIN_CHANNEL = "📈"
+    CONFIRM_BULLETIN_MINIMUM = "💰"
 
     @classmethod
     def price_update_reactions(
