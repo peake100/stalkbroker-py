@@ -15,7 +15,6 @@ class _Reactions:
     CONFIRM_PRICE_MORNING = "☀️"
     CONFIRM_PRICE_NIGHT = "🌒"
 
-    CONFIRM_PRICE_BULLETIN = "📣"
     CONFIRM_PRICE_HISTORIC = "📅"
 
     CONFIRM_TIMEZONE = "🕓"
@@ -42,11 +41,9 @@ class _Reactions:
             else:
                 reactions.append(cls.CONFIRM_PRICE_NIGHT)
 
-        if date_utils.is_price_period(
+        if not date_utils.is_price_period(
             message_datetime_local, price_date, price_time_of_day,
         ):
-            reactions.append(cls.CONFIRM_PRICE_BULLETIN)
-        else:
             reactions.append(cls.CONFIRM_PRICE_HISTORIC)
 
         return reactions
