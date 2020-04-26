@@ -9,7 +9,7 @@ from asynctest import patch
 from dataclasses import dataclass, field
 from typing import Tuple, List, Optional, Mapping, Callable
 
-from stalkbroker import bot, db, messages, models, defaults
+from stalkbroker import bot, db, messages, models, constants
 
 from zdevelop.tests.client import DiscordTestClient
 
@@ -41,23 +41,19 @@ async def verify_collection_indexes(
         expected_index.verify_index()
 
 
-def ticker_report_remove_memo(report: str, bulletin: bool = False) -> str:
+def ticker_report_remove_memo(
+    report: str, guild: discord.Guild, bulletin: bool = False
+) -> str:
     # We need to remove the memo, since it's random, and check that
     # the rest of the message is there
     report_lines = report.split("\n")
 
-    if not bulletin:
-        memo_line = -1
-    else:
-        memo_line = -2
+    memo_line = -1
 
-    memo = report_lines[memo_line]
+    memo = report_lines[-1]
     report = "\n".join(report_lines[:memo_line])
 
     assert memo.startswith("**Memo**:")
-
-    if bulletin:
-        assert report_lines[-1] == "@everyone"
 
     return report
 
@@ -164,7 +160,6 @@ class TestLifecycle:
         # Check that the discord id is correct
         assert isinstance(server_data["id"], uuid.UUID)
         assert server_data["discord_id"] == test_client.guild.id
-        assert server_data["bulletin_minimum"] == defaults.BULLETIN_MINIMUM
 
     @mark_test
     async def test_users_added(
@@ -182,6 +177,16 @@ class TestLifecycle:
         assert user_data["discord_id"] == test_client.user.id
         # Check that this server has been added to the list of servers for that user
         assert any(s for s in user_data["servers"] if s == test_client.guild.id)
+
+    @mark_test
+    async def test_investor_role_created(self, test_client: DiscordTestClient) -> None:
+        role: discord.Role = discord.utils.get(
+            test_client.guild.roles, name=constants.BULLETIN_ROLE
+        )
+        assert role is not None
+        assert role.name == constants.BULLETIN_ROLE
+
+    # COMMAND TESTS #####
 
     @mark_test
     async def test_error_on_no_timezone(self, test_client: DiscordTestClient):
@@ -245,6 +250,46 @@ class TestLifecycle:
         """
         user = await stalkdb.fetch_user(test_client.user, test_client.guild)
         assert user.timezone == local_tz
+
+    @mark_test
+    async def test_bulletins_subscribe(
+        self, test_client: DiscordTestClient, stalkdb: db.DBConnection,
+    ):
+        test_client.reset_test(expected_messages=0, expected_reactions=2)
+        await test_client.send("$bulletins subscribe")
+        await test_client.wait()
+
+        assert test_client.assert_received_confirmation(
+            [messages.REACTIONS.CONFIRM_BULLETINS_SUBSCRIBED]
+        )
+
+        # Check that the db was updated
+        user = await stalkdb.fetch_user(test_client.user, test_client.guild)
+        assert user.notify_on_bulletin is True
+
+        # Check that the role was added on discord
+        member: discord.Member = test_client.guild.get_member(user.discord_id)
+        assert any(r.name == constants.BULLETIN_ROLE for r in member.roles)
+
+    @mark_test
+    async def test_bulletins_unsubscribe(
+        self, test_client: DiscordTestClient, stalkdb: db.DBConnection,
+    ):
+        test_client.reset_test(expected_messages=0, expected_reactions=2)
+        await test_client.send("$bulletins unsubscribe")
+        await test_client.wait()
+
+        assert test_client.assert_received_confirmation(
+            [messages.REACTIONS.CONFIRM_BULLETINS_UNSUBSCRIBED]
+        )
+
+        # Check that the db was updated
+        user = await stalkdb.fetch_user(test_client.user, test_client.guild)
+        assert user.notify_on_bulletin is False
+
+        # Check that the role was added on discord
+        member: discord.Member = test_client.guild.get_member(user.discord_id)
+        assert not any(r.name == constants.BULLETIN_ROLE for r in member.roles)
 
     @mark_test
     async def test_set_bulletin_channel(
@@ -343,17 +388,27 @@ class TestLifecycle:
                     time_of_day=time_of_day,
                 )
                 expected_bulletin = ticker_report_remove_memo(
-                    expected_bulletin, bulletin=True
+                    expected_bulletin, guild=test_client.guild, bulletin=True
                 )
 
                 test_client.assert_received_message(
                     expected_bulletin, test_client.channel_bulletin, partial=True,
                 )
 
-                assert test_client.messages_received[0].mention_everyone
+                message = test_client.messages_received[0]
+                # Test that the user was mentioned as the market
                 assert (
-                    test_client.messages_received[0].mentions[0].id
-                    == test_client.user.id
+                    discord.utils.get(message.mentions, id=test_client.user.id)
+                    is not None
+                )
+
+                # Test that the investor role gets mentioned
+                investor_role = discord.utils.get(
+                    test_client.guild.roles, name=constants.BULLETIN_ROLE
+                )
+                assert (
+                    discord.utils.get(message.role_mentions, id=investor_role.id)
+                    is not None
                 )
 
             # Once we validate that, let's test fetching the ticker via message
@@ -370,7 +425,9 @@ class TestLifecycle:
                 ticker=expected_ticker,
                 message_time_local=message_time_local,
             )
-            expected_report = ticker_report_remove_memo(expected_report)
+            expected_report = ticker_report_remove_memo(
+                expected_report, guild=test_client.guild
+            )
 
             test_client.assert_received_message(
                 expected_report,
@@ -450,7 +507,9 @@ class TestLifecycle:
                 ticker=expected_ticker,
                 message_time_local=datetime.datetime.now(),
             )
-            expected_report = ticker_report_remove_memo(expected_report)
+            expected_report = ticker_report_remove_memo(
+                expected_report, guild=test_client.guild
+            )
 
             test_client.assert_received_message(
                 expected_report,
@@ -643,7 +702,9 @@ class TestLifecycle:
                 ticker=expected_ticker,
                 message_time_local=datetime.datetime.now(),
             )
-            expected_report = ticker_report_remove_memo(expected_report)
+            expected_report = ticker_report_remove_memo(
+                expected_report, guild=test_client.guild
+            )
 
             test_client.assert_received_message(
                 expected_report,

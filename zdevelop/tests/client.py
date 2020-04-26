@@ -335,7 +335,7 @@ class DiscordTestClient:
         expected_message: str,
         expected_channel: discord.TextChannel,
         partial: bool = False,
-    ) -> None:
+    ) -> bool:
         """
         Asserts that we have received a message we are expecting to have received
         since .reset_test() was called.
@@ -359,7 +359,10 @@ class DiscordTestClient:
 
             raise ValueError(f"message not found: {expected_message}")
 
-    def assert_received_confirmation(self, additional_reactions: List[str]) -> None:
+        # We're going to return true so we can assert this call in tests
+        return True
+
+    def assert_received_confirmation(self, additional_reactions: List[str]) -> bool:
 
         all_received: List[str] = list()
         for message in self.messages_sent:
@@ -372,4 +375,5 @@ class DiscordTestClient:
         for reaction in additional_reactions:
             assert reaction in all_received
 
-        return
+        # We're going to return true so we can assert this call in tests
+        return True

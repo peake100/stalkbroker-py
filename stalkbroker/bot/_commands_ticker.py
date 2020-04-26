@@ -3,7 +3,7 @@ import re
 import asyncio
 from typing import Optional, Tuple, List, Coroutine
 
-from stalkbroker import date_utils, errors, messages, models
+from stalkbroker import date_utils, errors, messages, models, constants
 
 from ._bot import STALKBROKER
 from ._commands_utils import confirm_execution
@@ -47,11 +47,16 @@ async def send_bulletin_to_server(
     if price < server_info.bulletin_minimum:
         return
 
-    guild = STALKBROKER.get_guild(server_info.discord_id)
+    guild: discord.Guild = STALKBROKER.get_guild(server_info.discord_id)
     # If the server has not set a bulletin channel, raise an error to be returned to
     # the user.
     if server_info.bulletin_channel is None:
         raise errors.NoBulletinChannelError(ctx=ctx, guild=guild)
+
+    bulletin_role: discord.Role = discord.utils.get(
+        guild.roles, name=constants.BULLETIN_ROLE
+    )
+    bulletin = f"{bulletin}\n{bulletin_role.mention}"
 
     channel: discord.TextChannel = STALKBROKER.get_channel(server_info.bulletin_channel)
     await channel.send(bulletin)

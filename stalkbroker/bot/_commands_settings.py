@@ -4,7 +4,7 @@ import pytz.exceptions
 
 from stalkbroker import date_utils, errors, messages
 from ._bot import STALKBROKER
-from ._commands_utils import confirm_execution
+from ._commands_utils import confirm_execution, user_change_bulletin_subscription
 
 
 _IMPORT_HELPER = None
@@ -32,7 +32,7 @@ async def set_user_timezone(ctx: discord.ext.commands.Context, zone_arg: str) ->
         raise errors.BadTimezoneError(ctx, zone_arg)
     else:
         # Otherwise update the timezone then send a confirmation.
-        await STALKBROKER.db.update_timezone(ctx.author, ctx.guild, converted_tz)
+        await STALKBROKER.db.update_user_timezone(ctx.author, ctx.guild, converted_tz)
         # Let's add a four-o'clock emoji for flavor
         await confirm_execution(ctx, [messages.REACTIONS.CONFIRM_TIMEZONE])
 
@@ -74,3 +74,36 @@ async def set_bulletins_minimum(
     """
     await STALKBROKER.db.server_set_bulletin_minimum(ctx.guild, price_minimum)
     await confirm_execution(ctx, [messages.REACTIONS.CONFIRM_BULLETIN_MINIMUM])
+
+
+@bulletins.command(
+    name="subscribe",
+    pass_context=True,
+    help="Get notified when a high-price turnip offer occurs on another island. Signs"
+    "you up for the 'stalk investor role'. This is a discord-wide subscription and"
+    " will assign you to the role on every server you are a part of.",
+)
+async def bulletins_user_subscribe(ctx: discord.ext.commands.Context) -> None:
+    """
+    Assigns the user to the 'stalk investor' role so they get notified when bulletins
+    are posted.
+    """
+    discord_user: discord.User = ctx.author
+    await user_change_bulletin_subscription(discord_user, subscribe=True)
+    await confirm_execution(ctx, [messages.REACTIONS.CONFIRM_BULLETINS_SUBSCRIBED])
+
+
+@bulletins.command(
+    name="unsubscribe",
+    pass_context=True,
+    help="stop being notified when a turnip price bulletin occurs. This change is "
+    "applied to every server you are a part of.",
+)
+async def bulletins_user_unsubscribe(ctx: discord.ext.commands.Context) -> None:
+    """
+    Assigns the user to the 'stalk investor' role so they get notified when bulletins
+    are posted.
+    """
+    discord_user: discord.User = ctx.author
+    await user_change_bulletin_subscription(discord_user, subscribe=False)
+    await confirm_execution(ctx, [messages.REACTIONS.CONFIRM_BULLETINS_UNSUBSCRIBED])
