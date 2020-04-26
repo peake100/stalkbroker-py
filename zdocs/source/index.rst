@@ -191,7 +191,7 @@ a bulletin is published, type:
     $bulletins subscribe
 
 This will sign you up for bulletins on every server both you and stalkbroker are a part
-of! On these servers you will get added to the 'stalk investor' role, which is mentioned
+of! On these servers you will get added to the 'Stalk Investor' role, which is mentioned
 on bulletins.
 
 To be removed from the role, just type:
@@ -245,7 +245,7 @@ And that's it! Let's make some bells together.
 Bulletins Role
 --------------
 
-When stalkbroker joins your server, it will automatically create a 'stalk investor' role
+When stalkbroker joins your server, it will automatically create a 'Stalk Investor' role
 and add / remove users as required based on their preference for being notified of
 a bulletin.
 
