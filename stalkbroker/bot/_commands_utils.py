@@ -1,6 +1,6 @@
 import discord.ext.commands
 import asyncio
-from typing import List, Union, Coroutine
+from typing import List, Coroutine
 
 from stalkbroker import messages
 

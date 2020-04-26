@@ -5,7 +5,17 @@ import logging
 import datetime
 import pytz
 from asynctest import patch
-from typing import Optional, List, Callable, Awaitable, Tuple, ContextManager, Type, Coroutine, Union
+from typing import (
+    Optional,
+    List,
+    Callable,
+    Awaitable,
+    Tuple,
+    ContextManager,
+    Type,
+    Coroutine,
+    Union,
+)
 from types import TracebackType
 
 
@@ -90,7 +100,7 @@ def generate_on_message(
                 f"\n{message.content}\n\n"
             )
 
-        if message.author.id == :
+        if message.author.id != broker_id:
             return
 
         test_client.messages_received.append(message)
@@ -99,7 +109,6 @@ def generate_on_message(
             >= test_client.test_expected_count_received
             and not test_client.event_messages_received.is_set()
         ):
-            print("messages received!")
             test_client.event_messages_received.set()
 
     return on_message
@@ -231,7 +240,7 @@ class DiscordTestClient:
 
         return
 
-    def reset_test(self, expected_messages: int, expected_reactions: int) -> None:
+    def reset_test(self, expected_messages: int, expected_reactions: int = 0) -> None:
         """
         Resets the message list and count when we are moving on to a new set of messages
         we need to listen for.
@@ -240,15 +249,25 @@ class DiscordTestClient:
         self.test_expected_count_reactions = expected_reactions
 
         self.messages_received = list()
+        self.messages_sent = list()
 
         self.event_messages_received.clear()
         self.event_reactions_received.clear()
 
         if expected_reactions > 0:
             asyncio.create_task(self._wait_for_reaction())
+        else:
+            self.event_reactions_received.set()
+
+        if expected_messages == 0:
+            self.event_messages_received.set()
 
     async def send(self, content: str) -> None:
         message: discord.Message = await self.channel_send.send(content)
+        self.messages_sent.append(message)
+
+    async def send_bulletin(self, content: str) -> None:
+        message: discord.Message = await self.channel_bulletin.send(content)
         self.messages_sent.append(message)
 
     async def _wait_for_reaction(self) -> None:
@@ -261,7 +280,6 @@ class DiscordTestClient:
                 message = discord.utils.get(self.client.cached_messages, id=message.id)
                 self.messages_sent[i] = message
 
-                print("REACTIONS:", message.reactions)
                 count += len(message.reactions)
 
                 if count >= self.test_expected_count_reactions:
@@ -283,8 +301,9 @@ class DiscordTestClient:
         if self.test_expected_count_reactions > 0:
             coros.append(self.event_reactions_received.wait())
 
-        await asyncio.gather(*coros)
-        print("test done")
+        if coros:
+            await asyncio.gather(*coros)
+        print("communication complete")
 
     @staticmethod
     def freeze_time(datetime_local: datetime.datetime) -> _FreezeTimeContext:
@@ -338,8 +357,10 @@ class DiscordTestClient:
 
         all_received: List[str] = list()
         for message in self.messages_sent:
-            all_received.extend(message.reactions)
+            x: discord.Reaction
+            all_received.extend(x.emoji for x in message.reactions)
 
+        print("ALL REACTIONS:", all_received)
         assert messages.REACTIONS.CONFIRM_PRIMARY in all_received
 
         for reaction in additional_reactions:

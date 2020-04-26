@@ -6,20 +6,20 @@ from stalkbroker import date_utils, models
 
 class _Reactions:
     # Our primary confirmation will be a thumbs up
-    CONFIRM_PRIMARY = '👍'
+    CONFIRM_PRIMARY = "👍"
 
     # Now lets add som additional emotes to add for specific confirmations
-    CONFIRM_PRICE_NOOK = '🦝'
-    CONFIRM_PRICE_DAISEY = '🐷'
+    CONFIRM_PRICE_NOOK = "🦝"
+    CONFIRM_PRICE_DAISEY = "🐷"
 
-    CONFIRM_PRICE_MORNING = '☀️'
-    CONFIRM_PRICE_NIGHT = '🌒'
+    CONFIRM_PRICE_MORNING = "☀️"
+    CONFIRM_PRICE_NIGHT = "🌒"
 
-    CONFIRM_PRICE_BULLETIN = '📣'
-    CONFIRM_PRICE_HISTORIC = '📅'
+    CONFIRM_PRICE_BULLETIN = "📣"
+    CONFIRM_PRICE_HISTORIC = "📅"
 
-    CONFIRM_TIMEZONE = '🕓'
-    CONFIRM_BULLETIN_CHANNEL = '📈'
+    CONFIRM_TIMEZONE = "🕓"
+    CONFIRM_BULLETIN_CHANNEL = "📈"
 
     @classmethod
     def price_update_reactions(

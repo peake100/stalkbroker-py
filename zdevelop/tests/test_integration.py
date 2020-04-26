@@ -216,12 +216,11 @@ class TestLifecycle:
         """
         Tests that we can set the timezone for ourselves
         """
-        test_client.reset_test(expected_messages=1, expected_reactions=2)
+        test_client.reset_test(expected_messages=0, expected_reactions=2)
 
         await test_client.send(f"$timezone {local_tz.zone}")
         await test_client.wait()
 
-        assert len(test_client.messages_received) == 1
         test_client.assert_received_confirmation([messages.REACTIONS.CONFIRM_TIMEZONE])
 
     @mark_test
@@ -244,9 +243,9 @@ class TestLifecycle:
         """
         Tests sending the command to set the bulletin channel.
         """
-        test_client.reset_test(expected_messages=1, expected_reactions=2)
+        test_client.reset_test(expected_messages=0, expected_reactions=2)
 
-        await test_client.channel_bulletin.send("$bulletins_here")
+        await test_client.send_bulletin("$bulletins_here")
         await test_client.wait()
 
         test_client.assert_received_confirmation(
@@ -468,7 +467,6 @@ class TestLifecycle:
         In this test we are going to set a morning price in the afternoon of the same
         day using the "AM" argument.
         """
-        test_client.reset_test(expected_messages=0, expected_reactions=0)
 
         wednesday_pm_message_time = datetime.datetime.combine(
             date=expected_ticker_week2.week_of + datetime.timedelta(days=3),
@@ -476,12 +474,23 @@ class TestLifecycle:
         )
 
         expected_phase = expected_ticker_week2[4]
+        expected_reactions = messages.REACTIONS.price_update_reactions(
+            price_date=expected_phase.date,
+            price_time_of_day=models.TimeOfDay.AM,
+            message_datetime_local=wednesday_pm_message_time,
+        )
+
+        test_client.reset_test(
+            expected_messages=0, expected_reactions=len(expected_reactions) + 1
+        )
 
         with test_client.freeze_time(wednesday_pm_message_time):
             command = f"$ticker AM {expected_phase.price}"
 
-            await test_client.channel_send.send(command)
-            await test_client.event_messages_received.wait()
+            await test_client.send(command)
+            await test_client.wait()
+
+            test_client.assert_received_confirmation(expected_reactions)
 
         stalk_user = await stalkdb.fetch_user(test_client.user, test_client.guild)
         ticker_set = await stalkdb.fetch_ticker(
@@ -547,10 +556,10 @@ class TestLifecycle:
             # Lets move the commands around to check that we can do that
             command = command.format(price)
 
-            await test_client.channel_send.send(command)
+            await test_client.send(command)
             await test_client.wait()
 
-            assert test_client.assert_received_confirmation(expected_reactions)
+            test_client.assert_received_confirmation(expected_reactions)
 
         stalk_user = await stalkdb.fetch_user(test_client.user, test_client.guild)
         ticker_set = await stalkdb.fetch_ticker(
@@ -581,7 +590,7 @@ class TestLifecycle:
             request_date = base_sunday
 
             command = f"$ticker {request_date.strftime('%m/%d')}"
-            await test_client.channel_send.send(command)
+            await test_client.send(command)
 
             await test_client.event_messages_received.wait()
 
@@ -617,7 +626,7 @@ class TestLifecycle:
         with test_client.freeze_time(message_time_local):
 
             command = f"$ticker 4/5/2021"
-            await test_client.channel_send.send(command)
+            await test_client.send(command)
 
             await test_client.event_messages_received.wait()
 
@@ -651,7 +660,7 @@ class TestLifecycle:
         with test_client.freeze_time(tuesday_message_time):
 
             command = f"$ticker 180 {monday_arg_date.strftime('%m/%d')}"
-            await test_client.channel_send.send(command)
+            await test_client.send(command)
 
             await test_client.event_messages_received.wait()
 
