@@ -7,10 +7,9 @@ import time
 import datetime
 import pytz
 import uuid
-from concurrent.futures.thread import ThreadPoolExecutor
 from typing import List
 
-from stalkbroker import bot, db, models
+from stalkbroker import bot, db, models, constants
 
 from zdevelop.tests.client import DiscordTestClient
 
@@ -33,18 +32,15 @@ def event_loop():
 
 
 @pytest.fixture(scope="class")
-def client_executor():
-    """This executor is going to run our discord clients."""
-    executor = ThreadPoolExecutor()
-    yield executor
-    executor.shutdown()
-
-
-@pytest.fixture(scope="class")
 async def stalkbroker(
-    event_loop: asyncio.AbstractEventLoop, client_executor: ThreadPoolExecutor,
+    event_loop: asyncio.AbstractEventLoop,
 ) -> discord.ext.commands.Bot:
     """Sets up and runs the stalkbroker bot."""
+
+    # Now when this role gets created or used we can be certain it was this test
+    # We're going to run-specific user roles on the discord server, so we can be more
+    # certain that our roles were set up by this test run.
+    constants.BULLETIN_ROLE = f"stalk investor {uuid.uuid4()}"
 
     bot.STALKBROKER.testing = True
 
@@ -57,6 +53,14 @@ async def stalkbroker(
         await asyncio.sleep(0.1)
 
     yield bot.STALKBROKER
+
+    # Remove our test roles
+    guild: discord.Guild
+    for guild in bot.STALKBROKER.guilds:
+        bulletin_role: discord.Role = discord.utils.get(
+            guild.roles, name=constants.BULLETIN_ROLE
+        )
+        await bulletin_role.delete(reason="Test run complete")
 
     await bot.STALKBROKER.logout()
 

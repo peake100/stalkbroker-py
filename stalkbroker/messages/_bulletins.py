@@ -20,9 +20,8 @@ def _bulletin_nook_price_update(
         "date": date_local,
         "period": time_of_day.name,
     }
-    bulletin_string = bulletin("the market is moving", info)
-    bulletin_string = bulletin_string + f"\n@everyone"
-    return bulletin_string
+
+    return bulletin("the market is moving", info)
 
 
 def bulletin_price_update(

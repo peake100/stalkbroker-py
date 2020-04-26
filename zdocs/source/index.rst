@@ -181,7 +181,7 @@ Installing the Bot
 ==================
 
 To install the bot, make sure you have permissions to add bots to your server, then
-`click this link <https://discordapp.com/api/oauth2/authorize?client_id=700157570513502238&permissions=1074186240&scope=bot>`_.
+`click this link <https://discordapp.com/api/oauth2/authorize?client_id=700157570513502238&permissions=1342490688&scope=bot>`_.
 
 Congratulations! Your server now has cutting-edge, best-in-class investment support
 from Nook, Nook, and Nook Investment.

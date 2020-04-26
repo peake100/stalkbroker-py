@@ -10,7 +10,7 @@ import discord
 from typing import Optional, Dict, Any, DefaultDict, Mapping
 from collections import defaultdict
 
-from stalkbroker import models, schemas, date_utils, defaults
+from stalkbroker import models, schemas, date_utils, constants
 
 
 # The schema used to serialize and deserialize the Server model.
@@ -121,13 +121,6 @@ class DBConnection:
 
         update["$setOnInsert"]["id"] = uuid.uuid4()
         update["$setOnInsert"]["discord_id"] = query["discord_id"]
-
-        # We want to set the default bulletin minimum, but only if it is not in the
-        # $set directive yet. We need to check if $set has been added at all first so
-        # we don't create it by accident when we access it to check for
-        # bulletin_minimum.
-        if "$set" not in update or "bulletin_minimum" not in update["$set"]:
-            update["$setOnInsert"]["bulletin_minimum"] = defaults.BULLETIN_MINIMUM
 
         server_data = await self.collections.servers.find_one_and_update(
             query, update, upsert=True, return_document=pymongo.ReturnDocument.AFTER,
@@ -278,7 +271,7 @@ class DBConnection:
 
         return SCHEMA_USER_FULL.load(user_data)
 
-    async def update_timezone(
+    async def update_user_timezone(
         self,
         discord_user: discord.User,
         server: Optional[discord.Guild],
@@ -298,9 +291,41 @@ class DBConnection:
         self._add_server_to_user_update(update, server)
         update["$set"]["timezone"] = tz.tzname(None)
 
-        updated = await self.collections.users.find_one_and_update(query, update)
+        updated = await self.collections.users.find_one_and_update(
+            query, update, return_document=pymongo.ReturnDocument.AFTER
+        )
         if updated is None:
             await self._upsert_user(query, update)
+
+    async def update_user_notify_on_bulletin(
+        self, discord_user: discord.User, server: Optional[discord.Guild], notify: bool,
+    ) -> models.User:
+        """
+        Update whether the user should be notified on a bulletin.
+
+        :param discord_user: the discord user to update.
+        :param server: the server the user is on. ``None`` if interacting via DM.
+        :param notify: whether to notify the user.
+
+        :returns: loaded user model
+        """
+        assert self.collections is not None
+
+        query = _query_discord_id(discord_user.id)
+        update = _new_update()
+        self._add_server_to_user_update(update, server)
+        update["$set"]["notify_on_bulletin"] = notify
+
+        updated = await self.collections.users.find_one_and_update(
+            query, update, return_document=pymongo.ReturnDocument.AFTER
+        )
+        if updated is None:
+            updated = await self._upsert_user(query, update)
+
+        stalk_user = SCHEMA_USER_FULL.load(updated)
+        assert isinstance(stalk_user, models.User)
+
+        return stalk_user
 
     async def update_ticker(
         self,
@@ -341,7 +366,9 @@ class DBConnection:
 
         update["$set"] = set_price
 
-        await self.collections.tickers.find_one_and_update(query, update, upsert=True)
+        await self.collections.tickers.find_one_and_update(
+            query, update, upsert=True, return_document=pymongo.ReturnDocument.AFTER
+        )
 
     async def fetch_ticker(
         self, user: models.User, week_of: datetime.date

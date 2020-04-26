@@ -15,4 +15,6 @@ class User:
     timezone: Optional[pytz.BaseTzInfo] = None
     """Timezone the user is in"""
     servers: List[int] = field(default_factory=list)
-    """A list of servers this user is a part of"""
+    """A list of servers this user is a part of."""
+    notify_on_bulletin: bool = False
+    """Whether to notify this user on a bulletin."""
