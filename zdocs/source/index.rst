@@ -29,8 +29,11 @@ Stalkbroker will confirm it heard you with a few reactions!
 
 Timezones names are very a particular, you can find your timezone name
 `here <https://en.wikipedia.org/wiki/List_of_tz_database_time_zones>`_, in the
-``'TZ database name'`` column. Try to find the most specific timezone possible, as time
-standards are weird and hard, and we wish everyone could just be on ~island time~.
+``'TZ database name'`` column.
+
+Try to find the most specific timezone possible -- time standards are weird and hard!
+How we wish everyone could be on ~island time~... but the stalkmarket moves too fast for
+that!
 
 .. note::
 
@@ -177,6 +180,32 @@ And to get a friend's ticker instead of yours, just tag 'em:
     commands with a bell price to update will be executed on *your* stalk ticker.
 
 
+Signing up for Bulletins
+------------------------
+
+Bulletins go out when a server members price goes through the roof! To be notified when
+a bulletin is published, type:
+
+.. code-block:: text
+
+    $bulletins subscribe
+
+This will sign you up for bulletins on every server both you and stalkbroker are a part
+of! On these servers you will get added to the 'stalk investor' role, which is mentioned
+on bulletins.
+
+To be removed from the role, just type:
+
+.. code-block:: text
+
+    $bulletins unsubscribe
+
+.. warning::
+
+    By default, you ARE NOT subscribed to bulletins. Make sure to subscribe for those
+    sweet, sweet turnip deals.
+
+
 Installing the Bot
 ==================
 
@@ -189,8 +218,8 @@ from Nook, Nook, and Nook Investment.
 Configuring the Bot
 ===================
 
-Bulletin Channel
-----------------
+Bulletins Channel
+-----------------
 
 To set the channel you want price bulletins to come into, type this in the desired
 channel:
@@ -199,8 +228,8 @@ channel:
 
     $bulletins here
 
-Bulletin Minimum
-----------------
+Bulletins Minimum
+-----------------
 
 To change the minimum bell price required for bulletins, invoke this command in any
 channel:
@@ -212,3 +241,12 @@ channel:
 Now bulletins will only be sent when a sale price is at or above 310 bells.
 
 And that's it! Let's make some bells together.
+
+Bulletins Role
+--------------
+
+When stalkbroker joins your server, it will automatically create a 'stalk investor' role
+and add / remove users as required based on their preference for being notified of
+a bulletin.
+
+Whenever a bulletin goes out, this role is mentioned at the bottom.
