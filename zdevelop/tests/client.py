@@ -123,13 +123,15 @@ class _FreezeTimeContext:
     Makes it a little less unwieldy than calling multiple contexts in each test.
     """
 
-    def __init__(self, datetime_local: datetime.datetime) -> None:
+    def __init__(
+        self, datetime_local: datetime.datetime, timezone: pytz.BaseTzInfo
+    ) -> None:
         """
         :param datetime_local: The local time of the message we want to freeze time for.
         """
         self.datetime_local: datetime.datetime = datetime_local
         # Cache the timezone as well
-        self.tz_local: pytz.BaseTzInfo = pytz.timezone("America/New_York")
+        self.tz_local: pytz.BaseTzInfo = timezone
 
         # This is where we will store the context managers we are, well, managing.
 
@@ -173,9 +175,15 @@ class DiscordTestClient:
     clients we are going to use send and receive test messages to and from the bot.
     """
 
-    def __init__(self, broker_id: int, init_from: Optional["DiscordTestClient"] = None):
+    def __init__(
+        self,
+        broker_id: int,
+        timezone: pytz.BaseTzInfo,
+        init_from: Optional["DiscordTestClient"] = None,
+    ):
         # Resources
         self.client: discord.Client = discord.Client()
+        self.timezone: pytz.BaseTzInfo = timezone
 
         # The rest of these will be created and set by the  'on_ready' client event.
         self.user: Optional[discord.User] = None
@@ -311,9 +319,8 @@ class DiscordTestClient:
             await asyncio.gather(*coros)
         print("communication complete")
 
-    @staticmethod
-    def freeze_time(datetime_local: datetime.datetime) -> _FreezeTimeContext:
-        return _FreezeTimeContext(datetime_local)
+    def freeze_time(self, datetime_local: datetime.datetime) -> _FreezeTimeContext:
+        return _FreezeTimeContext(datetime_local, self.timezone)
 
     @staticmethod
     def _check_message(

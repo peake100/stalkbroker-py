@@ -233,10 +233,24 @@ class TestLifecycle:
         """
         test_client.reset_test(expected_messages=0, expected_reactions=2)
 
-        await test_client.send(f"$timezone {local_tz.zone}")
+        await test_client.send(f"$timezone {test_client.timezone.zone}")
         await test_client.wait()
 
         test_client.assert_received_confirmation([messages.REACTIONS.CONFIRM_TIMEZONE])
+
+    @mark_test
+    async def test_set_timezone_response_user2(
+        self, test_client2: DiscordTestClient, local_tz2: pytz.BaseTzInfo
+    ):
+        """
+        Tests that we can set the timezone for ourselves
+        """
+        test_client2.reset_test(expected_messages=0, expected_reactions=2)
+
+        await test_client2.send(f"$timezone {test_client2.timezone.zone}")
+        await test_client2.wait()
+
+        test_client2.assert_received_confirmation([messages.REACTIONS.CONFIRM_TIMEZONE])
 
     @mark_test
     async def test_set_timezone_db(
@@ -252,44 +266,113 @@ class TestLifecycle:
         assert user.timezone == local_tz
 
     @mark_test
-    async def test_bulletins_subscribe(
-        self, test_client: DiscordTestClient, stalkdb: db.DBConnection,
+    async def test_set_timezone_db_user2(
+        self,
+        stalkdb: db.DBConnection,
+        test_client2: DiscordTestClient,
+        local_tz2: pytz.BaseTzInfo,
     ):
-        test_client.reset_test(expected_messages=0, expected_reactions=2)
-        await test_client.send("$bulletins subscribe")
-        await test_client.wait()
+        """
+        Tests that the timezone got updated correctly in the last test.
+        """
+        user = await stalkdb.fetch_user(test_client2.user, test_client2.guild)
+        assert user.timezone == local_tz2
 
-        assert test_client.assert_received_confirmation(
+    @staticmethod
+    async def _test_bulletins_subscribe(
+        test_client_primary: DiscordTestClient,
+        test_client_secondary: DiscordTestClient,
+        stalkdb: db.DBConnection,
+    ):
+        test_client_primary.reset_test(expected_messages=0, expected_reactions=2)
+        await test_client_primary.send("$bulletins subscribe")
+        await test_client_primary.wait()
+
+        assert test_client_primary.assert_received_confirmation(
             [messages.REACTIONS.CONFIRM_BULLETINS_SUBSCRIBED]
         )
 
         # Check that the db was updated
-        user = await stalkdb.fetch_user(test_client.user, test_client.guild)
+        user = await stalkdb.fetch_user(
+            test_client_primary.user, test_client_primary.guild
+        )
         assert user.notify_on_bulletin is True
 
         # Check that the role was added on discord
-        member: discord.Member = test_client.guild.get_member(user.discord_id)
+        member: discord.Member = test_client_primary.guild.get_member(user.discord_id)
         assert any(r.name == constants.BULLETIN_ROLE for r in member.roles)
 
-    @mark_test
-    async def test_bulletins_unsubscribe(
-        self, test_client: DiscordTestClient, stalkdb: db.DBConnection,
-    ):
-        test_client.reset_test(expected_messages=0, expected_reactions=2)
-        await test_client.send("$bulletins unsubscribe")
-        await test_client.wait()
+        # Check that the second user was not affected
+        user2 = await stalkdb.fetch_user(
+            test_client_secondary.user, test_client_secondary.guild
+        )
+        assert user2.notify_on_bulletin is False
 
-        assert test_client.assert_received_confirmation(
+        # Check that the role was NOT added on discord for the second user
+        member: discord.Member = test_client_secondary.guild.get_member(
+            user2.discord_id
+        )
+        assert not any(r.name == constants.BULLETIN_ROLE for r in member.roles)
+
+    @staticmethod
+    async def _test_bulletins_unsubscribe(
+        test_client_primary: DiscordTestClient, stalkdb: db.DBConnection,
+    ):
+        test_client_primary.reset_test(expected_messages=0, expected_reactions=2)
+        await test_client_primary.send("$bulletins unsubscribe")
+        await test_client_primary.wait()
+
+        assert test_client_primary.assert_received_confirmation(
             [messages.REACTIONS.CONFIRM_BULLETINS_UNSUBSCRIBED]
         )
 
         # Check that the db was updated
-        user = await stalkdb.fetch_user(test_client.user, test_client.guild)
+        user = await stalkdb.fetch_user(
+            test_client_primary.user, test_client_primary.guild
+        )
         assert user.notify_on_bulletin is False
 
         # Check that the role was added on discord
-        member: discord.Member = test_client.guild.get_member(user.discord_id)
+        member: discord.Member = test_client_primary.guild.get_member(user.discord_id)
         assert not any(r.name == constants.BULLETIN_ROLE for r in member.roles)
+
+    @mark_test
+    async def test_bulletins_subscribe_user1(
+        self,
+        test_client: DiscordTestClient,
+        test_client2: DiscordTestClient,
+        stalkdb: db.DBConnection,
+    ):
+        await self._test_bulletins_subscribe(
+            test_client_primary=test_client,
+            test_client_secondary=test_client2,
+            stalkdb=stalkdb,
+        )
+
+    @mark_test
+    async def test_bulletins_unsubscribe_user1(
+        self, test_client: DiscordTestClient, stalkdb: db.DBConnection,
+    ):
+        await self._test_bulletins_unsubscribe(test_client, stalkdb)
+
+    @mark_test
+    async def test_bulletins_subscribe_user2(
+        self,
+        test_client: DiscordTestClient,
+        test_client2: DiscordTestClient,
+        stalkdb: db.DBConnection,
+    ):
+        await self._test_bulletins_subscribe(
+            test_client_primary=test_client2,
+            test_client_secondary=test_client,
+            stalkdb=stalkdb,
+        )
+
+    @mark_test
+    async def test_bulletins_unsubscribe_user2(
+        self, test_client2: DiscordTestClient, stalkdb: db.DBConnection,
+    ):
+        await self._test_bulletins_unsubscribe(test_client2, stalkdb)
 
     @mark_test
     async def test_set_bulletin_channel(
@@ -334,6 +417,9 @@ class TestLifecycle:
             [messages.REACTIONS.CONFIRM_BULLETIN_MINIMUM]
         )
 
+    # NOTE: This test takes a long time to run because of discord's rate limiting, but
+    # faithfully tests our core functionality.
+    @pytest.mark.parametrize("user", [1, 2])
     @pytest.mark.parametrize("phase_index", range(13))
     @mark_test
     async def test_set_bell_prices(
@@ -342,8 +428,22 @@ class TestLifecycle:
         test_client2: DiscordTestClient,
         phase_dates: List[datetime.datetime],
         expected_ticker: models.Ticker,
+        expected_ticker_user2: models.Ticker,
         phase_index: int,
+        user: int,
     ):
+        # We're going to set a full ticker for two separate clients to make sure that
+        # they get handled correctly.
+        if user == 1:
+            client_primary = test_client
+            client_secondary = test_client2
+        else:
+            client_primary = test_client2
+            client_secondary = test_client
+            # Use a ticker with different values for the second user so we are more
+            # certain it is being tracked correctly.
+            expected_ticker = expected_ticker_user2
+
         message_time_local = phase_dates[phase_index]
 
         ticker_index = phase_index - 1
@@ -353,7 +453,7 @@ class TestLifecycle:
             price = expected_ticker[ticker_index].price
 
         # Freeze time at the date we want so we are sending the message "now".
-        with test_client.freeze_time(message_time_local):
+        with client_primary.freeze_time(message_time_local):
             if message_time_local.hour < 12:
                 time_of_day = models.TimeOfDay.AM
             else:
@@ -371,40 +471,44 @@ class TestLifecycle:
                 expected_messages = 0
 
             # Now lets test setting the price
-            test_client.reset_test(
+            client_primary.reset_test(
                 expected_messages=expected_messages,
                 expected_reactions=len(expected_reactions) + 1,
             )
+            client_secondary.reset_test(
+                expected_messages=expected_messages, expected_reactions=0,
+            )
 
-            await test_client.send(f"$ticker {price}")
-            await test_client.wait()
+            await client_primary.send(f"$ticker {price}")
+            await client_primary.wait()
+            await client_secondary.wait()
 
             if expected_messages == 1:
                 # And also check that the bulletin went out to the correct channel
                 expected_bulletin = messages.bulletin_price_update(
-                    discord_user=test_client.user,
+                    discord_user=client_primary.user,
                     price=price,
                     date_local=message_time_local.date(),
                     time_of_day=time_of_day,
                 )
                 expected_bulletin = ticker_report_remove_memo(
-                    expected_bulletin, guild=test_client.guild, bulletin=True
+                    expected_bulletin, guild=client_primary.guild, bulletin=True
                 )
 
-                test_client.assert_received_message(
-                    expected_bulletin, test_client.channel_bulletin, partial=True,
+                client_primary.assert_received_message(
+                    expected_bulletin, client_primary.channel_bulletin, partial=True,
                 )
 
-                message = test_client.messages_received[0]
+                message = client_primary.messages_received[0]
                 # Test that the user was mentioned as the market
                 assert (
-                    discord.utils.get(message.mentions, id=test_client.user.id)
+                    discord.utils.get(message.mentions, id=client_primary.user.id)
                     is not None
                 )
 
                 # Test that the investor role gets mentioned
                 investor_role = discord.utils.get(
-                    test_client.guild.roles, name=constants.BULLETIN_ROLE
+                    client_primary.guild.roles, name=constants.BULLETIN_ROLE
                 )
                 assert (
                     discord.utils.get(message.role_mentions, id=investor_role.id)
@@ -412,24 +516,24 @@ class TestLifecycle:
                 )
 
             # Once we validate that, let's test fetching the ticker via message
-            test_client.reset_test(1, expected_reactions=0)
-            test_client2.reset_test(1, expected_reactions=0)
+            client_primary.reset_test(1, expected_reactions=0)
+            client_secondary.reset_test(1, expected_reactions=0)
 
-            await test_client.send("$ticker")
+            await client_primary.send("$ticker")
 
-            await test_client.wait()
-            await test_client2.wait()
+            await client_primary.wait()
+            await client_secondary.wait()
 
             expected_report = messages.report_ticker(
-                display_name=test_client.user.display_name,
+                display_name=client_primary.user.display_name,
                 ticker=expected_ticker,
                 message_time_local=message_time_local,
             )
             expected_report = ticker_report_remove_memo(
-                expected_report, guild=test_client.guild
+                expected_report, guild=client_primary.guild
             )
 
-            test_client.assert_received_message(
+            client_primary.assert_received_message(
                 expected_report,
                 expected_channel=test_client.channel_send,
                 partial=True,
@@ -437,16 +541,16 @@ class TestLifecycle:
 
             # Once we validate that, let's test fetching the ticker via mentioning
             # the user's name
-            test_client.reset_test(1, expected_reactions=0)
-            test_client2.reset_test(1, expected_reactions=0)
+            client_primary.reset_test(1, expected_reactions=0)
+            client_secondary.reset_test(1, expected_reactions=0)
 
-            await test_client2.send(f"$ticker {test_client.user.mention}")
-            await test_client.wait()
-            await test_client2.wait()
+            await client_secondary.send(f"$ticker {client_primary.user.mention}")
+            await client_primary.wait()
+            await client_secondary.wait()
 
-            test_client2.assert_received_message(
+            client_secondary.assert_received_message(
                 expected_report,
-                expected_channel=test_client2.channel_send,
+                expected_channel=client_secondary.channel_send,
                 partial=True,
             )
 
@@ -468,6 +572,27 @@ class TestLifecycle:
         expected_ticker.user_id = stalk_user.id
 
         assert expected_ticker == stored_ticker
+
+    @mark_test
+    async def test_ticker_db_values_user2(
+        self,
+        expected_ticker_user2: models.Ticker,
+        stalkdb: db.DBConnection,
+        test_client2: DiscordTestClient,
+    ):
+        """
+        Test that the ticker values set in the last test were correctly stored by the
+        database.
+        """
+
+        stalk_user = await stalkdb.fetch_user(test_client2.user, test_client2.guild)
+        stored_ticker = await stalkdb.fetch_ticker(
+            stalk_user, expected_ticker_user2.week_of
+        )
+
+        expected_ticker_user2.user_id = stalk_user.id
+
+        assert expected_ticker_user2 == stored_ticker
 
     @pytest.mark.parametrize("request_offset", [0, 1, 6])
     @mark_test
