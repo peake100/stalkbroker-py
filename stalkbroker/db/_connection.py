@@ -48,6 +48,11 @@ def _query_discord_id(discord_id: int) -> _QueryType:
     return {"discord_id": discord_id}
 
 
+def _query_ticker(user: models.User, week_of: datetime.date) -> _QueryType:
+    mongo_week = date_utils.serialize_date(week_of)
+    return {"user_id": user.id, "week_of": mongo_week}
+
+
 class _Collections:
     """
     Houses the motor collection objects for asynchronously accessing data in mongodb.
@@ -348,7 +353,7 @@ class DBConnection:
 
         mongo_date = date_utils.serialize_date(week_of)
 
-        query = {"week_of": mongo_date}
+        query = _query_ticker(user, week_of)
         update: Dict[str, Any] = {
             "$setOnInsert": {"user_id": user.id, "week_of": mongo_date},
         }
@@ -383,9 +388,7 @@ class DBConnection:
         """
         assert self.collections is not None
 
-        mongo_data = date_utils.serialize_date(week_of)
-
-        query = {"user_id": user.id, "week_of": mongo_data}
+        query = _query_ticker(user, week_of)
         ticker_data = await self.collections.tickers.find_one(query)
 
         if ticker_data is None:

@@ -66,13 +66,33 @@ async def stalkbroker(
 
 
 @pytest.fixture(scope="class")
+def local_tz() -> pytz.BaseTzInfo:
+    """
+    Returns the local tz of the machine running these tests. Because user timezone is so
+    integral to knowing the price phase of the user, we'll need to use it to make some
+    adjustment to our datetimes.
+    """
+    return pytz.timezone("America/New_York")
+
+
+@pytest.fixture(scope="class")
+def local_tz2() -> pytz.BaseTzInfo:
+    """
+    Second timezone for the second user
+    """
+    return pytz.timezone("America/Los_Angeles")
+
+
+@pytest.fixture(scope="class")
 async def test_client(
-    event_loop: asyncio.AbstractEventLoop, stalkbroker: discord.ext.commands.Bot,
+    event_loop: asyncio.AbstractEventLoop,
+    stalkbroker: discord.ext.commands.Bot,
+    local_tz: pytz.BaseTzInfo,
 ) -> DiscordTestClient:
     """Manages our first test user client."""
 
     # Setup client
-    client1 = DiscordTestClient(broker_id=stalkbroker.user.id)
+    client1 = DiscordTestClient(broker_id=stalkbroker.user.id, timezone=local_tz)
     await client1.start(os.environ["TEST_CLIENT_DISCORD_TOKEN"])
 
     # Return to tests
@@ -87,6 +107,7 @@ async def test_client2(
     event_loop: asyncio.AbstractEventLoop,
     stalkbroker: discord.ext.commands.Bot,
     test_client: DiscordTestClient,
+    local_tz2: pytz.BaseTzInfo,
 ) -> DiscordTestClient:
     """
     Manages our second test user client. We will primarily use this to test fetching
@@ -94,7 +115,9 @@ async def test_client2(
     """
 
     # Setup client
-    client2 = DiscordTestClient(broker_id=stalkbroker.user.id, init_from=test_client)
+    client2 = DiscordTestClient(
+        broker_id=stalkbroker.user.id, timezone=local_tz2, init_from=test_client
+    )
     await client2.start(os.environ["TEST_CLIENT_DISCORD_TOKEN2"])
 
     # Return to tests
@@ -114,16 +137,6 @@ async def stalkdb(event_loop: asyncio.AbstractEventLoop,) -> db.DBConnection:
     await connection.connect()
 
     yield connection
-
-
-@pytest.fixture()
-def local_tz() -> datetime.tzinfo:
-    """
-    Returns the local tz of the machine running these tests. Because user timezone is so
-    integral to knowing the price phase of the user, we'll need to use it to make some
-    adjustment to our datetimes.
-    """
-    return pytz.timezone("America/New_York")
 
 
 @pytest.fixture()
@@ -154,9 +167,7 @@ def relative_message_time(
 
 
 @pytest.fixture()
-def phase_dates(
-    local_tz: datetime.tzinfo, base_sunday: datetime.date
-) -> List[datetime.datetime]:
+def phase_dates(base_sunday: datetime.date) -> List[datetime.datetime]:
     """
     Test dates and times for the entire week of base_sunday. These are the times we
     will use as our message times for updating bell prices.
@@ -202,23 +213,25 @@ def phase_dates(
     ]
 
 
-def create_expected_ticker(dates: List[datetime.datetime]):
+def create_expected_ticker(
+    dates: List[datetime.datetime], base_price: int
+) -> models.Ticker:
     """Creates an expected ticker model based on a list of message times."""
     ticker = models.Ticker(
-        user_id=uuid.uuid4(), week_of=dates[0].date(), purchase_price=100,
+        user_id=uuid.uuid4(), week_of=dates[0].date(), purchase_price=100 + base_price,
     )
-    ticker[0] = 101
-    ticker[1] = 102
-    ticker[2] = 103
-    ticker[3] = 104
-    ticker[4] = 105
-    ticker[5] = 449
-    ticker[6] = 450
-    ticker[7] = 108
-    ticker[8] = 560
-    ticker[9] = 110
-    ticker[10] = 111
-    ticker[11] = 112
+    ticker[0] = 101 + base_price
+    ticker[1] = 102 + base_price
+    ticker[2] = 103 + base_price
+    ticker[3] = 104 + base_price
+    ticker[4] = 105 + base_price
+    ticker[5] = 449 + base_price
+    ticker[6] = 450 + base_price
+    ticker[7] = 108 + base_price
+    ticker[8] = 560 + base_price
+    ticker[9] = 110 + base_price
+    ticker[10] = 111 + base_price
+    ticker[11] = 112 + base_price
 
     return ticker
 
@@ -226,7 +239,13 @@ def create_expected_ticker(dates: List[datetime.datetime]):
 @pytest.fixture
 def expected_ticker(phase_dates: List[datetime.datetime]) -> models.Ticker:
     """The resulting ticker we expect to be created for messages sent on phase_dates."""
-    return create_expected_ticker(phase_dates)
+    return create_expected_ticker(phase_dates, 0)
+
+
+@pytest.fixture
+def expected_ticker_user2(phase_dates: List[datetime.datetime]) -> models.Ticker:
+    """The resulting ticker we expect to be created for messages sent on phase_dates."""
+    return create_expected_ticker(phase_dates, 100)
 
 
 @pytest.fixture
@@ -241,4 +260,4 @@ def expected_ticker_week2(phase_dates_week2: List[datetime.datetime]) -> models.
     """
     The resulting ticker we expect to be created for messages sent on phase_dates_week2.
     """
-    return create_expected_ticker(phase_dates_week2)
+    return create_expected_ticker(phase_dates_week2, base_price=0)
