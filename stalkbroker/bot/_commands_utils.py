@@ -52,7 +52,7 @@ async def user_update_guild_roles(
     # If we are getting a generic user, we need to fetch the user's member model for the
     # guild we are updating.
     if not isinstance(discord_user, discord.Member):
-        discord_user = discord.utils.get(guild, id=discord_user.id)
+        discord_user = discord.utils.get(guild.members, id=discord_user.id)
         # Type assertion for mypy
         assert isinstance(discord_user, discord.Member)
 
