@@ -364,6 +364,7 @@ class DBConnection:
                 date=price_date, time_of_day=price_time_of_day
             )
             phase_index = models.Ticker.phase_from_date(price_date, price_time_of_day)
+            print("PHASE INDEX:", phase_index)
             set_price[f"phases.{phase_index}"] = price
 
         else:
