@@ -129,7 +129,16 @@ def get_context_local_dt(
     :return: local time for the user.
     """
     message: discord.Message = ctx.message
-    return message.created_at.astimezone(user_tz)
+    created_time = message.created_at
+
+    # Annoyingly, discord.py does not always include the timezone depending on how a
+    # message is fetched. For instance, messages from a channel's history have
+    # created_at objects that do not contain tzinfo. For such cases we need to apply UTC
+    # ourselves before localizing
+    if created_time.tzinfo is None:
+        created_time = created_time.replace(tzinfo=pytz.utc)
+
+    return created_time.astimezone(user_tz)
 
 
 def is_price_period(
