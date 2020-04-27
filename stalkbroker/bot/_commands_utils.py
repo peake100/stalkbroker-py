@@ -49,12 +49,10 @@ async def user_update_guild_roles(
     """
     Update the guild roles of a user based on their settings.
     """
-    # If we are getting a generic user, we need to fetch the user's member model for the
-    # guild we are updating.
-    if not isinstance(discord_user, discord.Member):
-        discord_user = discord.utils.get(guild.members, id=discord_user.id)
-        # Type assertion for mypy
-        assert isinstance(discord_user, discord.Member)
+    # We need to transform the user into the member for THAT GUILD.
+    discord_user = discord.utils.get(guild.members, id=discord_user.id)
+    # Type assertion for mypy
+    assert isinstance(discord_user, discord.Member)
 
     # Get the bulletin role for the guild.
     bulletins_role: discord.Role = get_guild_role(guild, constants.BULLETIN_ROLE)
