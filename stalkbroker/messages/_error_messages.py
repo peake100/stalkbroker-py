@@ -82,7 +82,7 @@ def error_general(user: discord.User) -> str:
     :returns: the formatted message.
     """
     return (
-        f"Well, nuts. I had some trouble processing you're request, {user.mention}."
+        f"Well, nuts. I had some trouble processing your request, {user.mention}."
         f" I'll DM you the details."
     )
 
