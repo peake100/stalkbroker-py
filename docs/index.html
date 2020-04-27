@@ -1,0 +1,416 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>stalkbroker-py &mdash; stalkbroker 0.2.3 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="#" class="icon icon-home"> stalkbroker
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.2.3
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <!-- Local TOC -->
+              <div class="local-toc"><ul>
+<li><a class="reference internal" href="#">stalkbroker-py</a></li>
+<li><a class="reference internal" href="#using-the-bot">Using the Bot</a><ul>
+<li><a class="reference internal" href="#setting-your-timezone">Setting your Timezone</a></li>
+<li><a class="reference internal" href="#setting-your-current-turnip-price">Setting Your Current Turnip Price</a></li>
+<li><a class="reference internal" href="#setting-a-past-turnip-price">Setting a Past Turnip Price</a></li>
+<li><a class="reference internal" href="#getting-your-ticker">Getting Your Ticker</a></li>
+<li><a class="reference internal" href="#signing-up-for-bulletins">Signing up for Bulletins</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#installing-the-bot">Installing the Bot</a></li>
+<li><a class="reference internal" href="#configuring-the-bot">Configuring the Bot</a><ul>
+<li><a class="reference internal" href="#bulletins-channel">Bulletins Channel</a></li>
+<li><a class="reference internal" href="#bulletins-minimum">Bulletins Minimum</a></li>
+<li><a class="reference internal" href="#bulletins-role">Bulletins Role</a></li>
+</ul>
+</li>
+</ul>
+</div>
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="#">stalkbroker</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="#">Docs</a> &raquo;</li>
+        
+      <li>stalkbroker-py</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="stalkbroker-py">
+<h1>stalkbroker-py<a class="headerlink" href="#stalkbroker-py" title="Permalink to this headline">¶</a></h1>
+<p>We at Nook, Nook, and Nook Investment (TM) are excited to bring you Stalkbroker, a
+discord bot for tracking you and your friends’ turnip prices in Animal Crossing!</p>
+</div>
+<div class="section" id="using-the-bot">
+<h1>Using the Bot<a class="headerlink" href="#using-the-bot" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="setting-your-timezone">
+<h2>Setting your Timezone<a class="headerlink" href="#setting-your-timezone" title="Permalink to this headline">¶</a></h2>
+<p>Your timezone is important for us to correctly track the prices on your island. It might
+be daytime inside stalkbroker’s server when it’s nighttime on your island!</p>
+<p>To let stalkbroker know what timezone you are playing in, type:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>$timezone &lt;your timezone&gt;
+</pre></div>
+</div>
+<p>Like so:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$timezone America/Los_Angeles
+</pre></div>
+</div>
+<p>Stalkbroker will confirm it heard you with a few reactions!</p>
+<p>Timezones names are very a particular, you can find your timezone name
+<a class="reference external" href="https://en.wikipedia.org/wiki/List_of_tz_database_time_zones">here</a>, in the
+<code class="docutils literal notranslate"><span class="pre">'TZ</span> <span class="pre">database</span> <span class="pre">name'</span></code> column.</p>
+<p>Try to find the most specific timezone possible – time standards are weird and hard!
+How we wish everyone could be on ~island time~… but the stalkmarket moves too fast for
+that!</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>There are three shorthand timezones stalkbroker will recognize:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>US/Pacific: PST</p></li>
+<li><p>US/Eastern: EST</p></li>
+<li><p>US/Central: CST</p></li>
+</ul>
+</div></blockquote>
+<p>For all other timezones, see the chart referenced above.</p>
+</div>
+</div>
+<div class="section" id="setting-your-current-turnip-price">
+<h2>Setting Your Current Turnip Price<a class="headerlink" href="#setting-your-current-turnip-price" title="Permalink to this headline">¶</a></h2>
+<p>Stalkbroker keeps a stalk ticker for your turnip price each week.</p>
+<p>To set your current turnip price, use the following command:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>$ticker 205
+</pre></div>
+</div>
+<p>We’ll add a few reactions to your post to let we know we heard you.</p>
+<p>If your bell price is high, the following bulletin will be sent to your server’s
+bulletin channel:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>The Market Is Moving!!!
+Market: @Billy (Zalack) 🍊 - Verune
+The Nooks&#39; Offer: 205
+Date: Saturday Apr 24, 2020
+Period: PM
+Memo: 401K through the vegetable way.
+@everyone
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The default threshold for sending out a bulletin is a sale price of 200 bells.
+This threshold is configurable by the server admins.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>We’re smart enough to know that Sunday is the day Daisey Mae comes into town. Your
+price that day will be set as the purchase price automatically!</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If you are a member of multiple servers that stalkbroker is also a member of,
+your bulletin will be sent to each server’s bulletins channel. That way you only
+need to type your update once and stalkbroker will take care of the rest.</p>
+<p>Stalkbroker CANNOT see servers it is not invited to, so only servers which have
+stalkbroker installed will get these automatic updates!</p>
+</div>
+</div>
+<div class="section" id="setting-a-past-turnip-price">
+<h2>Setting a Past Turnip Price<a class="headerlink" href="#setting-a-past-turnip-price" title="Permalink to this headline">¶</a></h2>
+<p>Say it’s 12:30 PM and (oh no!) you forgot to update your ticker in the morning!
+Not to fret! You can type:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>$ticker 121 AM
+</pre></div>
+</div>
+<p>In this case, <em>a bulletin will not go out to your server</em>, as it is not a current,
+actionable price. The market doesn’t move on yesterday’s news, as we say. However, it’s
+still worth setting so you can pull up a more complete ticker later.</p>
+<p>If you missed an earlier day, you can also specify a a date:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>$ticker 136 4/23 AM
+</pre></div>
+</div>
+<p>Down the road, stalkbroker will be able to do price projections, and the more complete
+your ticker, the more accurate the projections will be!</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>When setting a price, the price, date, and time of day (AM/PM) can appear in any
+order. All of the following commands are valid:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>$ticker 136 4/23 AM</p></li>
+<li><p>$ticker 136 AM 4/23</p></li>
+<li><p>$ticker AM 136 4/23</p></li>
+<li><p>$ticker 4/23 AM 136</p></li>
+<li><p>etc, etc</p></li>
+</ul>
+</div></blockquote>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>When setting the price for a sunday, Stalkbroker knows this is the the purchase
+price. Additionally, when retroactively setting past price, there is no need to
+include the AM / PM value for a sunday, though including it will not throw an error.</p>
+</div>
+</div>
+<div class="section" id="getting-your-ticker">
+<h2>Getting Your Ticker<a class="headerlink" href="#getting-your-ticker" title="Permalink to this headline">¶</a></h2>
+<p>To look up your current week’s stalk ticker, just type:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>$ticker
+</pre></div>
+</div>
+<p>Stalkbroker will give you an overview of your market’s trends:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Market Report
+Market: Billy (Zalack) 🍊 - Verune
+Week Of: 04/19/20
+Daisey&#39;S Deal: 98
+Monday Am: 68
+Monday Pm: 78
+Tuesday Am: 89
+Tuesday Pm: 65
+Wednesday Am: 110
+Wednesday Pm: 115
+Thursday Am: 209
+Thursday Pm: 190
+Friday Am: 180
+Friday Pm: 120
+Memo: Not just another piece of shovelware
+</pre></div>
+</div>
+<p>To get a ticker for a past week just request a date from that week:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>$ticker 4/5
+</pre></div>
+</div>
+<p>And to get a friend’s ticker instead of yours, just tag ‘em:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>$ticker @TheRealDarthVader
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>You <em>cannot set a price</em> on a friend’s ticker, only view it. Mentions on ticker
+commands with a bell price to update will be executed on <em>your</em> stalk ticker.</p>
+</div>
+</div>
+<div class="section" id="signing-up-for-bulletins">
+<h2>Signing up for Bulletins<a class="headerlink" href="#signing-up-for-bulletins" title="Permalink to this headline">¶</a></h2>
+<p>Bulletins go out when a server members price goes through the roof! To be notified when
+a bulletin is published, type:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>$bulletins subscribe
+</pre></div>
+</div>
+<p>This will sign you up for bulletins on every server both you and stalkbroker are a part
+of! On these servers you will get added to the ‘Stalk Investor’ role, which is mentioned
+on bulletins.</p>
+<p>To be removed from the role, just type:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>$bulletins unsubscribe
+</pre></div>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>By default, you ARE NOT subscribed to bulletins. Make sure to subscribe for those
+sweet, sweet turnip deals.</p>
+</div>
+</div>
+</div>
+<div class="section" id="installing-the-bot">
+<h1>Installing the Bot<a class="headerlink" href="#installing-the-bot" title="Permalink to this headline">¶</a></h1>
+<p>To install the bot, make sure you have permissions to add bots to your server, then
+<a class="reference external" href="https://discordapp.com/api/oauth2/authorize?client_id=700157570513502238&amp;permissions=1342490688&amp;scope=bot">click this link</a>.</p>
+<p>Congratulations! Your server now has cutting-edge, best-in-class investment support
+from Nook, Nook, and Nook Investment.</p>
+</div>
+<div class="section" id="configuring-the-bot">
+<h1>Configuring the Bot<a class="headerlink" href="#configuring-the-bot" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="bulletins-channel">
+<h2>Bulletins Channel<a class="headerlink" href="#bulletins-channel" title="Permalink to this headline">¶</a></h2>
+<p>To set the channel you want price bulletins to come into, type this in the desired
+channel:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>$bulletins here
+</pre></div>
+</div>
+</div>
+<div class="section" id="bulletins-minimum">
+<h2>Bulletins Minimum<a class="headerlink" href="#bulletins-minimum" title="Permalink to this headline">¶</a></h2>
+<p>To change the minimum bell price required for bulletins, invoke this command in any
+channel:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>$bulletins minimum 310
+</pre></div>
+</div>
+<p>Now bulletins will only be sent when a sale price is at or above 310 bells.</p>
+<p>And that’s it! Let’s make some bells together.</p>
+</div>
+<div class="section" id="bulletins-role">
+<h2>Bulletins Role<a class="headerlink" href="#bulletins-role" title="Permalink to this headline">¶</a></h2>
+<p>When stalkbroker joins your server, it will automatically create a ‘Stalk Investor’ role
+and add / remove users as required based on their preference for being notified of
+a bulletin.</p>
+<p>Whenever a bulletin goes out, this role is mentioned at the bottom.</p>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright &#39;2020, Billy Peake&#39;
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>
