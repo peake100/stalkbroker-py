@@ -168,8 +168,8 @@ def is_price_period(
         # g2g
         return local_dt.hour < 12
     else:
-        # And finally if we are checking of PM, see if it is after 12:00
-        return local_dt.hour > 12
+        # And finally if we are checking of PM, see if it is after or at 12:00
+        return local_dt.hour >= 12
 
 
 def previous_sunday(anchor_date: datetime.date) -> datetime.date:
@@ -235,7 +235,7 @@ def _deduce_price_time_of_day(
 
     msg_time = get_context_local_dt(ctx, user_tz)
 
-    if msg_time.hour <= 12:
+    if msg_time.hour < 12:
         return models.TimeOfDay.AM
     else:
         return models.TimeOfDay.PM

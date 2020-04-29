@@ -185,7 +185,7 @@ def phase_dates(base_sunday: datetime.date) -> List[datetime.datetime]:
     )
 
     wednesday_am = relative_message_time(sunday=base_sunday, weekday=2, hour=9)
-    wednesday_pm = relative_message_time(sunday=base_sunday, weekday=2, hour=16)
+    wednesday_pm = relative_message_time(sunday=base_sunday, weekday=2, hour=12)
 
     thursday_am = relative_message_time(sunday=base_sunday, weekday=3, hour=11)
     thursday_pm = relative_message_time(sunday=base_sunday, weekday=3, hour=16)
