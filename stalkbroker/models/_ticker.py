@@ -95,6 +95,22 @@ class Ticker:
         return date.weekday() * 2 + time_of_day.value
 
     @staticmethod
+    def phase_from_datetime(dt: datetime.datetime) -> Optional[int]:
+        """
+        Get the phase index value for a given datetime.
+
+        :param dt: the date of the price phase.
+
+        :returns: either the phase index or ``None`` if this is a sunday.
+        """
+        if dt.hour < 12:
+            time_of_day: TimeOfDay = TimeOfDay.AM
+        else:
+            time_of_day = TimeOfDay.PM
+
+        return Ticker.phase_from_date(date=dt.date(), time_of_day=time_of_day)
+
+    @staticmethod
     def phase_name(phase: int) -> str:
         """
         Return the name to use in reports for a given price phase.

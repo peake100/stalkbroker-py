@@ -24,6 +24,8 @@ class _Reactions:
     CONFIRM_BULLETIN_CHANNEL = "📈"
     CONFIRM_BULLETIN_MINIMUM = "💰"
 
+    CONFIRM_FORECAST = "🌧️"
+
     @classmethod
     def price_update_reactions(
         cls,

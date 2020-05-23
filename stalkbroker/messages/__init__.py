@@ -12,7 +12,7 @@ from ._error_messages import (
     error_no_bulletin_channel,
 )
 from ._reactions import REACTIONS
-from ._reports import report_ticker
+from ._reports import report_ticker, report_forecast
 
 
 (
@@ -28,4 +28,5 @@ from ._reports import report_ticker
     bulletin_price_update,
     REACTIONS,
     report_ticker,
+    report_forecast,
 )

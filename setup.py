@@ -16,7 +16,9 @@ if __name__ == "__main__":
     version = config.get("version", "release")
 
     # filter packages to ones with the lib name in them
-    packages: List[str] = [p for p in find_packages() if p.startswith(lib_name)]
+    packages: List[str] = [
+        p for p in find_packages() if p.startswith(lib_name) or p.startswith("protogen")
+    ]
 
     # run setup
     setup(version=version, packages=packages)

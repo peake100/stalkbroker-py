@@ -1,6 +1,8 @@
 import discord.ext.commands
 import re
 import asyncio
+import datetime
+import dataclasses
 from typing import Optional, Tuple, List, Coroutine
 
 from stalkbroker import date_utils, errors, messages, models, constants
@@ -175,23 +177,17 @@ async def update_ticker(
     await send_bulletins_to_all_user_servers(ctx, stalk_user, bulletin, price)
 
 
-async def fetch_ticker(
+@dataclasses.dataclass
+class MessageTickerInfo:
+    discord_user: discord.User
+    stalk_user: models.User
+    user_time: datetime.datetime
+    ticker: models.Ticker
+
+
+async def fetch_message_ticker_info(
     ctx: discord.ext.commands.Context, date_arg: Optional[str]
-) -> None:
-    """
-    Fetches the ticker of a user and sends back a formatted report.
-
-    :param ctx: message context passed in by discord.py to the calling command.
-    :param date_arg: the date argument passed by the user for the week they want to
-        fetch. If none, the current date will be used. This date does not have to
-        match the ticker's ``week_of`` field, but can be any date for that week.
-
-    :raises UnknownUserTimezoneError: If the user's timezone is unknown and we cannot
-        convert their message time.
-    :raises ImaginaryDateError: If the user has specified a date that does not exist.
-    :raises FutureDateError: If the user is trying to set the price for a date that
-        has not happened yet.
-    """
+) -> MessageTickerInfo:
     message: discord.Message = ctx.message
 
     # If another user is mentioned in the message, we want to pull their ticker instead,
@@ -216,10 +212,39 @@ async def fetch_ticker(
     week_of = date_utils.previous_sunday(requested_date)
     user_ticker = await STALKBROKER.db.fetch_ticker(stalk_user, week_of)
 
-    response = messages.report_ticker(
-        display_name=discord_user.display_name,
+    result = MessageTickerInfo(
+        discord_user=discord_user,
+        stalk_user=stalk_user,
+        user_time=message_time_local,
         ticker=user_ticker,
-        message_time_local=message_time_local,
+    )
+
+    return result
+
+
+async def fetch_ticker(
+    ctx: discord.ext.commands.Context, date_arg: Optional[str]
+) -> None:
+    """
+    Fetches the ticker of a user and sends back a formatted report.
+
+    :param ctx: message context passed in by discord.py to the calling command.
+    :param date_arg: the date argument passed by the user for the week they want to
+        fetch. If none, the current date will be used. This date does not have to
+        match the ticker's ``week_of`` field, but can be any date for that week.
+
+    :raises UnknownUserTimezoneError: If the user's timezone is unknown and we cannot
+        convert their message time.
+    :raises ImaginaryDateError: If the user has specified a date that does not exist.
+    :raises FutureDateError: If the user is trying to set the price for a date that
+        has not happened yet.
+    """
+    info = await fetch_message_ticker_info(ctx, date_arg)
+
+    response = messages.report_ticker(
+        display_name=info.discord_user.display_name,
+        ticker=info.ticker,
+        message_time_local=info.user_time,
     )
 
     await ctx.send(response)
