@@ -1,15 +1,30 @@
 import discord.ext.commands
 import re
 import asyncio
+import datetime
+import dataclasses
+import grpclib.exceptions
 from typing import Optional, Tuple, List, Coroutine
 
+from protogen.stalk_proto import models_pb2 as backend
 from stalkbroker import date_utils, errors, messages, models, constants
 
 from ._bot import STALKBROKER
 from ._commands_utils import confirm_execution
 
-
 _IMPORT_HELPER = None
+
+# Converts this bots price pattern enum values to our backend service model's enum
+# values.
+PATTERN_FROM_BACKEND = {
+    backend.PricePatterns.UNKNOWN: models.Patterns.UNKNOWN,
+    backend.PricePatterns.FLUCTUATING: models.Patterns.FLUCTUATING,
+    backend.PricePatterns.DECREASING: models.Patterns.DECREASING,
+    backend.PricePatterns.SMALLSPIKE: models.Patterns.SMALLSPIKE,
+    backend.PricePatterns.BIGSPIKE: models.Patterns.BIGSPIKE,
+}
+
+PATTERN_TO_BACKEND = {v: k for k, v in PATTERN_FROM_BACKEND.items()}
 
 
 # One nice thing about the data we need to get to update the ticker, is each argument
@@ -78,6 +93,9 @@ async def send_bulletins_to_all_user_servers(
     bulletin_coros: List[Coroutine] = list()
     for server_discord_id in user.servers:
         server = STALKBROKER.get_guild(server_discord_id)
+        # This user might be part of a server we don't have access to.
+        if server is None:
+            continue
         bulletin_coros.append(send_bulletin_to_server(ctx, server, bulletin, price))
 
     # Asynchronously send them all.
@@ -97,6 +115,17 @@ async def send_bulletins_to_all_user_servers(
     if error_list:
         # If there were errors, raise them wrapped in a BulkResponseError
         raise errors.BulkResponseError(error_list)
+
+
+def confirmed_pattern_from_forecast(forecast: backend.Forecast) -> models.Patterns:
+    p: backend.PotentialPattern
+    possible_patterns = [p for p in forecast.patterns if len(p.potential_weeks) > 0]
+    if possible_patterns == 1:
+        backend_pattern = possible_patterns[0].pattern
+    else:
+        backend_pattern = backend.UNKNOWN
+
+    return PATTERN_FROM_BACKEND[backend_pattern]
 
 
 async def update_ticker(
@@ -142,7 +171,7 @@ async def update_ticker(
 
     week_of = date_utils.previous_sunday(price_date)
 
-    await STALKBROKER.db.update_ticker(
+    user_ticker = await STALKBROKER.db.update_ticker_price(
         user=stalk_user,
         week_of=week_of,
         price_date=price_date,
@@ -150,7 +179,34 @@ async def update_ticker(
         price=price,
     )
 
-    # Add confirmation reactions to the original message.
+    # Now we need to make a forecast and check if we have a confirmed price pattern
+    # so that we can update it.
+    previous_pattern = await STALKBROKER.db.fetch_previous_pattern(
+        user=stalk_user, week_of_current=week_of,
+    )
+
+    current_period = user_ticker.phase_from_datetime(message_time_local)
+    if current_period is None:
+        current_period = 0
+
+    previous_pattern_backend = PATTERN_TO_BACKEND[previous_pattern]
+    ticker_backend = user_ticker.to_backend(
+        previous_pattern=previous_pattern_backend, current_period=current_period,
+    )
+
+    try:
+        island_forecast = await STALKBROKER.client_forecaster.ForecastPrices(
+            ticker_backend,
+        )
+    except grpclib.exceptions.GRPCError as error:
+        raise errors.BackendError(ctx, error)
+
+    # Update our weeks price pattern. It will be set as 'UNKNOWN' if there are multiple
+    # possible prices.
+    price_pattern = confirmed_pattern_from_forecast(island_forecast)
+    await STALKBROKER.db.update_ticker_pattern(stalk_user, week_of, price_pattern)
+
+    # Add confirmation reactions to the original message now that we are done.
     reactions = messages.REACTIONS.price_update_reactions(
         price_date=price_date,
         price_time_of_day=price_time_of_day,
@@ -166,6 +222,7 @@ async def update_ticker(
     if price_date.weekday() == date_utils.SUNDAY:
         return
 
+    # Send out bulletins as necessary
     bulletin = messages.bulletin_price_update(
         discord_user=ctx.author,
         price=price,
@@ -175,23 +232,17 @@ async def update_ticker(
     await send_bulletins_to_all_user_servers(ctx, stalk_user, bulletin, price)
 
 
-async def fetch_ticker(
+@dataclasses.dataclass
+class MessageTickerInfo:
+    discord_user: discord.User
+    stalk_user: models.User
+    user_time: datetime.datetime
+    ticker: models.Ticker
+
+
+async def fetch_message_ticker_info(
     ctx: discord.ext.commands.Context, date_arg: Optional[str]
-) -> None:
-    """
-    Fetches the ticker of a user and sends back a formatted report.
-
-    :param ctx: message context passed in by discord.py to the calling command.
-    :param date_arg: the date argument passed by the user for the week they want to
-        fetch. If none, the current date will be used. This date does not have to
-        match the ticker's ``week_of`` field, but can be any date for that week.
-
-    :raises UnknownUserTimezoneError: If the user's timezone is unknown and we cannot
-        convert their message time.
-    :raises ImaginaryDateError: If the user has specified a date that does not exist.
-    :raises FutureDateError: If the user is trying to set the price for a date that
-        has not happened yet.
-    """
+) -> MessageTickerInfo:
     message: discord.Message = ctx.message
 
     # If another user is mentioned in the message, we want to pull their ticker instead,
@@ -216,10 +267,39 @@ async def fetch_ticker(
     week_of = date_utils.previous_sunday(requested_date)
     user_ticker = await STALKBROKER.db.fetch_ticker(stalk_user, week_of)
 
-    response = messages.report_ticker(
-        display_name=discord_user.display_name,
+    result = MessageTickerInfo(
+        discord_user=discord_user,
+        stalk_user=stalk_user,
+        user_time=message_time_local,
         ticker=user_ticker,
-        message_time_local=message_time_local,
+    )
+
+    return result
+
+
+async def fetch_ticker(
+    ctx: discord.ext.commands.Context, date_arg: Optional[str]
+) -> None:
+    """
+    Fetches the ticker of a user and sends back a formatted report.
+
+    :param ctx: message context passed in by discord.py to the calling command.
+    :param date_arg: the date argument passed by the user for the week they want to
+        fetch. If none, the current date will be used. This date does not have to
+        match the ticker's ``week_of`` field, but can be any date for that week.
+
+    :raises UnknownUserTimezoneError: If the user's timezone is unknown and we cannot
+        convert their message time.
+    :raises ImaginaryDateError: If the user has specified a date that does not exist.
+    :raises FutureDateError: If the user is trying to set the price for a date that
+        has not happened yet.
+    """
+    info = await fetch_message_ticker_info(ctx, date_arg)
+
+    response = messages.report_ticker(
+        display_name=info.discord_user.display_name,
+        ticker=info.ticker,
+        message_time_local=info.user_time,
     )
 
     await ctx.send(response)

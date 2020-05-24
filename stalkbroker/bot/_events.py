@@ -80,8 +80,6 @@ async def _initialize() -> None:
     and receiving messages, whether for the first time or when resuming a session.
     """
     print("doing some bookkeeping")
-    await STALKBROKER.db.connect()
-
     guild_coros: List[Coroutine] = list()
     for guild in STALKBROKER.guilds:
         guild_coros.append(_add_guild(guild))
@@ -93,7 +91,10 @@ async def _initialize() -> None:
 @STALKBROKER.event
 async def on_ready() -> None:
     """Called the first time the bot spins up."""
+    print("starting up resources")
+    await STALKBROKER.start_resources()
     await _initialize()
+    STALKBROKER.started.set()
 
 
 @STALKBROKER.event

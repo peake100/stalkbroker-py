@@ -65,3 +65,9 @@ doc:
 	python setup.py build_sphinx -E
 	sleep 1
 	open ./zdocs/build/html/index.html
+
+.PHONY: proto
+proto:
+	python3 -m grpc_tools.protoc -I. --python_out=./protogen --python_grpc_out=./protogen --mypy_out=./protogen ./stalk_proto/*.proto ./stalk_proto/google/api/*.proto
+	python3 ./zdevelop/make_scripts/make_proto.py
+	make format

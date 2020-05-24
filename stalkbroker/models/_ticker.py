@@ -1,7 +1,9 @@
 import datetime
 import uuid
 from dataclasses import dataclass, field
-from typing import Optional, Generator, Dict
+from typing import Optional, Generator, Dict, List
+
+from protogen.stalk_proto import models_pb2 as backend
 
 
 from ._enums import TimeOfDay, Patterns
@@ -33,7 +35,7 @@ class Ticker:
     with lots of ``None`` values when we don't have info for a phase.
     """
 
-    final_pattern: Optional[Patterns] = None
+    final_pattern: Optional[Patterns] = Patterns.UNKNOWN
     """The final pattern for the week 'None' if unknown"""
 
     def __post_init__(self) -> None:
@@ -95,6 +97,22 @@ class Ticker:
         return date.weekday() * 2 + time_of_day.value
 
     @staticmethod
+    def phase_from_datetime(dt: datetime.datetime) -> Optional[int]:
+        """
+        Get the phase index value for a given datetime.
+
+        :param dt: the date of the price phase.
+
+        :returns: either the phase index or ``None`` if this is a sunday.
+        """
+        if dt.hour < 12:
+            time_of_day: TimeOfDay = TimeOfDay.AM
+        else:
+            time_of_day = TimeOfDay.PM
+
+        return Ticker.phase_from_date(date=dt.date(), time_of_day=time_of_day)
+
+    @staticmethod
     def phase_name(phase: int) -> str:
         """
         Return the name to use in reports for a given price phase.
@@ -154,3 +172,26 @@ class Ticker:
             self.purchase_price = price
         else:
             self.phases[phase] = price
+
+    def to_backend(
+        self, previous_pattern: backend.PricePatterns, current_period: int,
+    ) -> backend.Ticker:
+        prices: List[int] = list()
+        for phase in self:
+            if phase.price is None:
+                price = 0
+            else:
+                price = phase.price
+            prices.append(price)
+
+        if self.purchase_price is None:
+            purchase_price = 0
+        else:
+            purchase_price = self.purchase_price
+
+        return backend.Ticker(
+            purchase_price=purchase_price,
+            previous_pattern=previous_pattern,
+            prices=prices,
+            current_period=current_period,
+        )

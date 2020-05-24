@@ -174,10 +174,40 @@ And to get a friend's ticker instead of yours, just tag 'em:
 
     $ticker @TheRealDarthVader
 
-.. note::
+.. warning::
 
     You *cannot set a price* on a friend's ticker, only view it. Mentions on ticker
     commands with a bell price to update will be executed on *your* stalk ticker.
+
+
+Getting Your Forecast
+---------------------
+
+To get a forecast for your current week, complete with a beautiful chart:
+
+.. code-block:: text
+
+    $forecast
+
+You'll get a chart like so:
+
+
+.. image:: _static/example_chart.svg
+   :target: _static/example_chart.svg
+
+
+And the following report:
+
+.. code-block::
+
+    Market Forecast
+    Market: Billy (Zalack) 🍊 - Verune
+    Week Of: 05/17/20
+    Likely High: 642 (85% chance)
+    Big Spike: 642 (85% chance)
+    Small Spike: 214 (11% chance)
+    Soonest Spike: 1 day
+    Memo: Turn-up your profits.
 
 
 Signing up for Bulletins

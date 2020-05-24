@@ -369,7 +369,9 @@ class DiscordTestClient:
         # We're going to return true so we can assert this call in tests
         return True
 
-    def assert_received_confirmation(self, additional_reactions: List[str]) -> bool:
+    def assert_received_confirmation(
+        self, additional_reactions: List[str], primary: bool = True
+    ) -> bool:
 
         all_received: List[str] = list()
         for message in self.messages_sent:
@@ -377,7 +379,8 @@ class DiscordTestClient:
             all_received.extend(x.emoji for x in message.reactions)
 
         print("ALL REACTIONS:", all_received)
-        assert messages.REACTIONS.CONFIRM_PRIMARY in all_received
+        if primary:
+            assert messages.REACTIONS.CONFIRM_PRIMARY in all_received
 
         for reaction in additional_reactions:
             assert reaction in all_received

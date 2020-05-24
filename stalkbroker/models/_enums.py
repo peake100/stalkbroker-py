@@ -27,7 +27,8 @@ class TimeOfDay(enum.Enum):
 class Patterns(enum.Enum):
     """Possible pattern names."""
 
-    RANDOM = "random"
-    DECREASING = "decreasing"
-    SMALL_SPIKE = "small spike"
-    BIG_SPIKE = "big spike"
+    UNKNOWN = "UNKNOWN"
+    FLUCTUATING = "FLUCTUATING"
+    DECREASING = "DECREASING"
+    SMALLSPIKE = "SMALLSPIKE"
+    BIGSPIKE = "BIG_SPIKE"

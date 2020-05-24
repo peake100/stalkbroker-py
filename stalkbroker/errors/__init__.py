@@ -8,6 +8,8 @@ from ._classes import (
     TimeOfDayRequiredError,
     UnknownUserTimezoneError,
     NoBulletinChannelError,
+    BackendError,
+    ImpossibleTickerError,
 )
 from ._handle import handle_command_error
 
@@ -22,4 +24,6 @@ from ._handle import handle_command_error
     TimeOfDayRequiredError,
     NoBulletinChannelError,
     handle_command_error,
+    BackendError,
+    ImpossibleTickerError,
 )

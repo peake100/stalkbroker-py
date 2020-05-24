@@ -27,6 +27,7 @@ SCHEMA_TICKER_FULL = schemas.Ticker(
     unknown=marshmallow.EXCLUDE,
 )
 
+ONE_WEEK = datetime.timedelta(days=7)
 
 # Types Aliases for mypy
 _QueryType = Dict[str, Any]
@@ -332,14 +333,14 @@ class DBConnection:
 
         return stalk_user
 
-    async def update_ticker(
+    async def update_ticker_price(
         self,
         user: models.User,
         week_of: datetime.date,
         price_date: datetime.date,
         price_time_of_day: Optional[models.TimeOfDay],
         price: int,
-    ) -> None:
+    ) -> models.Ticker:
         """
         Update a turnip price ticker for a user.
 
@@ -372,9 +373,61 @@ class DBConnection:
 
         update["$set"] = set_price
 
-        await self.collections.tickers.find_one_and_update(
+        ticker_raw = await self.collections.tickers.find_one_and_update(
             query, update, upsert=True, return_document=pymongo.ReturnDocument.AFTER
         )
+        return SCHEMA_TICKER_FULL.load(ticker_raw)
+
+    async def update_ticker_pattern(
+        self, user: models.User, week_of: datetime.date, pattern: models.Patterns,
+    ) -> models.Ticker:
+        """
+        Set the price pattern for the user's ticker during ``week_of``.
+
+        :param user: the stalkbroker user the ticker belongs to.
+        :param week_of: the sunday date this ticker starts.
+        :param pattern: the price pattern the ticker describes.
+
+        :returns: turnip stalk price ticker.
+        """
+        assert self.collections is not None
+
+        query = _query_ticker(user, week_of)
+
+        update: Dict[str, Any] = {
+            "$set": {"final_pattern": pattern.value},
+        }
+
+        ticker_raw = await self.collections.tickers.find_one_and_update(
+            query, update, upsert=True, return_document=pymongo.ReturnDocument.AFTER
+        )
+        return SCHEMA_TICKER_FULL.load(ticker_raw)
+
+    async def fetch_previous_pattern(
+        self, user: models.User, week_of_current: datetime.date,
+    ) -> models.Patterns:
+        """
+        Get the price pattern for the user's ticker for the week before
+        ``week_of_current``.
+
+        :param user: the stalkbroker user the ticker belongs to.
+        :param week_of_current: the sunday date the current week starts.
+
+        :returns: turnip stalk price ticker.
+        """
+        assert self.collections is not None
+
+        week_of_previous = week_of_current - ONE_WEEK
+
+        query = _query_ticker(user, week_of_previous)
+        projection: Dict[str, Any] = {"final_pattern": 1}
+
+        document = await self.collections.tickers.find_one(query, projection=projection)
+        if document is None:
+            return models.Patterns.UNKNOWN
+
+        pattern = models.Patterns(document["final_pattern"])
+        return pattern
 
     async def fetch_ticker(
         self, user: models.User, week_of: datetime.date

@@ -1,4 +1,5 @@
 import discord.ext.commands
+import grpclib.exceptions
 from typing import Any, Iterable
 
 
@@ -200,3 +201,46 @@ class TimeOfDayRequiredError(AbstractResponseError):
 
     def response(self) -> str:
         return messages.error_time_of_day_required(self.ctx.author)
+
+
+_IMPOSSIBLE_PATTERN_MESSAGE = (
+    "could not generate possibilities because ticker prices are impossible"
+)
+
+
+class BackendError(Exception):
+    """
+    This class can be used to wrap grpc errors returned from our backend client stubs.
+    The error will be converted during handling to one of our known errors if it is
+    known. This allows us to wrap and raise the error in command handlers without having
+    tp worry about parsing it there.
+    """
+
+    def __init__(
+        self, ctx: discord.ext.commands.Context, error: grpclib.exceptions.GRPCError
+    ) -> None:
+        """
+        :param ctx: message context passed in by discord.py to the calling command.
+        :param user: the user the timezone is unknown for. NOTE: Because user's can
+            fetch each other's ticker information through mentions, this user may
+            be different from the context's user.
+        :param args: additional arguments for subclasses.
+        :param kwargs: additional keyword arguments for subclasses.
+        """
+        self.ctx: discord.ext.commands.Context = ctx
+        self.error: grpclib.exceptions.GRPCError = error
+        super().__init__()
+
+    def convert_to_bot_error(self) -> Exception:
+        if self.error.message == _IMPOSSIBLE_PATTERN_MESSAGE:
+            return ImpossibleTickerError(self.ctx)
+        else:
+            return self.error
+
+
+class ImpossibleTickerError(AbstractResponseError):
+    def send_as_dm(self) -> bool:
+        return False
+
+    def response(self) -> str:
+        return messages.error_impossible_ticker(self.ctx.author)
