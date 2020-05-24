@@ -32,4 +32,3 @@ jobs:
     parameters:
       testMongo: true
       publishDocs: true
-      minimumCoverage: 0.30

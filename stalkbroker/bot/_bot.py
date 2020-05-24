@@ -1,6 +1,7 @@
 import discord.ext.commands
 import os
 import grpclib.client
+import asyncio
 from stalkbroker import db
 from protogen.stalk_proto import forecaster_grpc as forecaster
 from protogen.stalk_proto import reporter_grpc as reporter
@@ -24,6 +25,8 @@ class _StalkBrokerBot(discord.ext.commands.Bot):
 
         self.client_forecaster: forecaster.StalkForecasterStub = None  # type: ignore
         self.client_reporter: reporter.StalkReporterStub = None  # type: ignore
+
+        self.started: asyncio.Event = asyncio.Event()
 
     async def start_resources(self) -> None:
         # Connect to db

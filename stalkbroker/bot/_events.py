@@ -79,9 +79,6 @@ async def _initialize() -> None:
     This event is invoked by discord.py when the bot client is ready to start sending
     and receiving messages, whether for the first time or when resuming a session.
     """
-    print("starting up resources")
-    await STALKBROKER.start_resources()
-
     print("doing some bookkeeping")
     guild_coros: List[Coroutine] = list()
     for guild in STALKBROKER.guilds:
@@ -94,7 +91,10 @@ async def _initialize() -> None:
 @STALKBROKER.event
 async def on_ready() -> None:
     """Called the first time the bot spins up."""
+    print("starting up resources")
+    await STALKBROKER.start_resources()
     await _initialize()
+    STALKBROKER.started.set()
 
 
 @STALKBROKER.event

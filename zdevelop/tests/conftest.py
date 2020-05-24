@@ -46,11 +46,8 @@ async def stalkbroker(
 
     asyncio.create_task(bot.STALKBROKER.start(os.environ["DISCORD_TOKEN_TEST"]))
 
-    started = time.time()
-    while not bot.STALKBROKER.is_ready():
-        if time.time() - started > 10:
-            raise TimeoutError("Stalkbroker failed to start within 10 seconds")
-        await asyncio.sleep(0.1)
+    # Wait for the resources to spin up
+    await bot.STALKBROKER.started.wait()
 
     yield bot.STALKBROKER
 

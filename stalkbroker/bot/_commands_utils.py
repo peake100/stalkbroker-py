@@ -56,6 +56,8 @@ async def user_update_guild_roles(
 
     # Get the bulletin role for the guild.
     bulletins_role: discord.Role = get_guild_role(guild, constants.BULLETIN_ROLE)
+    if bulletins_role is None:
+        return
 
     # Add or remove the guild member from the guild role.
     if stalk_user.notify_on_bulletin is True:
