@@ -3,7 +3,6 @@ import os
 import asyncio
 import discord.ext.commands
 import dotenv
-import time
 import datetime
 import pytz
 import uuid
