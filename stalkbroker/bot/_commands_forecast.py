@@ -2,13 +2,16 @@ import discord.ext.commands
 import io
 import asyncio
 import grpclib.exceptions
-from typing import List
 
 from protogen.stalk_proto import models_pb2 as backend
 
 from stalkbroker import messages, errors
 from ._bot import STALKBROKER
-from ._commands_ticker import fetch_message_ticker_info
+from ._common import (
+    fetch_message_ticker_info,
+    get_forecast_from_backend,
+    current_period_for_backend,
+)
 from ._consts import CHART_BG_COLOR, CHART_PADDING
 
 _IMPORT_HELPER = None
@@ -36,51 +39,34 @@ async def forecast(ctx: discord.ext.commands.Context) -> None:
 
     # Get the user's latest ticker info from the db
     info = await fetch_message_ticker_info(ctx, date_arg=None)
+    backend_ticker, island_forecast = await get_forecast_from_backend(ctx, info)
 
-    # Now we need to submit that to the forecasting service
-    nook_prices: List[int] = list()
-    for period in range(12):
-        nook_prices.append(info.ticker.phases.get(period, 0))
-
-    current_period = info.ticker.phase_from_datetime(info.user_time)
-    if current_period is None:
-        current_period = 0
-
-    backend_ticker = backend.Ticker(
-        purchase_price=info.ticker.purchase_price,
-        previous_pattern=backend.PricePatterns.UNKNOWN,
-        prices=nook_prices,
-        current_period=current_period,
+    # Once we have the forecast, get the reporting service to generate a chart for
+    # it
+    req_chart = backend.ReqForecastChart(
+        ticker=backend_ticker,
+        forecast=island_forecast,
+        format=backend.ImageFormat.PNG,
+        color_background=CHART_BG_COLOR,
+        padding=CHART_PADDING,
     )
 
     # Catch backend errors and raise them wrapped in a response error.
     try:
-        island_forecast = await STALKBROKER.client_forecaster.ForecastPrices(
-            backend_ticker,
-        )
-
-        # Once we have the forecast, get the reporting service to generate a chart for
-        # it
-        req_chart = backend.ReqForecastChart(
-            ticker=backend_ticker,
-            forecast=island_forecast,
-            format=backend.ImageFormat.PNG,
-            color_background=CHART_BG_COLOR,
-            padding=CHART_PADDING,
-        )
         forecast_chart: backend.RespChart = (
             await STALKBROKER.client_reporter.ForecastChart(req_chart)
         )
-
     except grpclib.exceptions.GRPCError as error:
         raise errors.BackendError(ctx, error)
 
-    image_buffer = io.BytesIO(forecast_chart.chart)
-
     # Embed the resulting image in the return message, and include a high-level chart
+    image_buffer = io.BytesIO(forecast_chart.chart)
     image_file = discord.File(image_buffer, filename="forecast.png")
+
+    # Create the text report we are going to send with it.
+    current_period = current_period_for_backend(info.user_time)
     message = messages.report_forecast(
-        info.discord_user, info.ticker, island_forecast, current_period
+        info.discord_user, info.ticker, island_forecast, current_period=current_period
     )
 
     await ctx.send(message, file=image_file)
