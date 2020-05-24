@@ -16,6 +16,7 @@ from typing import (
     Iterable as typing___Iterable,
     List as typing___List,
     Optional as typing___Optional,
+    Text as typing___Text,
     Tuple as typing___Tuple,
     Union as typing___Union,
     cast as typing___cast,
@@ -516,6 +517,8 @@ global___Forecast = Forecast
 class ReqForecastChart(google___protobuf___message___Message):
     DESCRIPTOR: google___protobuf___descriptor___Descriptor = ...
     format = ...  # type: global___ImageFormat
+    color_background = ...  # type: typing___Text
+    padding = ...  # type: builtin___float
     @property
     def ticker(self) -> global___Ticker: ...
     @property
@@ -526,6 +529,8 @@ class ReqForecastChart(google___protobuf___message___Message):
         ticker: typing___Optional[global___Ticker] = None,
         forecast: typing___Optional[global___Forecast] = None,
         format: typing___Optional[global___ImageFormat] = None,
+        color_background: typing___Optional[typing___Text] = None,
+        padding: typing___Optional[builtin___float] = None,
     ) -> None: ...
     if sys.version_info >= (3,):
         @classmethod
@@ -546,7 +551,16 @@ class ReqForecastChart(google___protobuf___message___Message):
     def ClearField(
         self,
         field_name: typing_extensions___Literal[
-            "forecast", b"forecast", "format", b"format", "ticker", b"ticker"
+            "color_background",
+            b"color_background",
+            "forecast",
+            b"forecast",
+            "format",
+            b"format",
+            "padding",
+            b"padding",
+            "ticker",
+            b"ticker",
         ],
     ) -> None: ...
 

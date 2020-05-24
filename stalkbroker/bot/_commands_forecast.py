@@ -2,12 +2,14 @@ import discord.ext.commands
 import io
 import asyncio
 import grpclib.exceptions
-from ._bot import STALKBROKER
-from ._commands_ticker import fetch_message_ticker_info
-from stalkbroker import messages, errors
-from protogen.stalk_proto import models_pb2 as backend
 from typing import List
 
+from protogen.stalk_proto import models_pb2 as backend
+
+from stalkbroker import messages, errors
+from ._bot import STALKBROKER
+from ._commands_ticker import fetch_message_ticker_info
+from ._consts import CHART_BG_COLOR, CHART_PADDING
 
 _IMPORT_HELPER = None
 
@@ -63,6 +65,8 @@ async def forecast(ctx: discord.ext.commands.Context) -> None:
             ticker=backend_ticker,
             forecast=island_forecast,
             format=backend.ImageFormat.PNG,
+            color_background=CHART_BG_COLOR,
+            padding=CHART_PADDING,
         )
         forecast_chart: backend.RespChart = (
             await STALKBROKER.client_reporter.ForecastChart(req_chart)
