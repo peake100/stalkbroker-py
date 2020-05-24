@@ -42,7 +42,7 @@ async def forecast(ctx: discord.ext.commands.Context) -> None:
 
     current_period = info.ticker.phase_from_datetime(info.user_time)
     if current_period is None:
-        current_period = -1
+        current_period = 0
 
     backend_ticker = backend.Ticker(
         purchase_price=info.ticker.purchase_price,

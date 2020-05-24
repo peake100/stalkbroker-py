@@ -422,26 +422,29 @@ class TestLifecycle:
         """
         Tests that we can get a forecast chart for the beginning of the week.
         """
-        test_client.reset_test(expected_messages=1, expected_reactions=1)
+        message_time_local = datetime.datetime(year=2020, month=5, day=17, hour=12)
+        with test_client.freeze_time(message_time_local):
 
-        await test_client.send("$forecast")
-        await test_client.wait()
+            test_client.reset_test(expected_messages=1, expected_reactions=1)
 
-        test_client.assert_received_confirmation(
-            [messages.REACTIONS.CONFIRM_FORECAST], primary=False
-        )
+            await test_client.send("$forecast")
+            await test_client.wait()
 
-        expected = (
-            "**Market**: <@702285048283398225>"
-            "\n**Week Of**: 05/17/20"
-            "\n**Likely High**: 154 (35% chance)"
-        )
+            test_client.assert_received_confirmation(
+                [messages.REACTIONS.CONFIRM_FORECAST], primary=False
+            )
 
-        test_client.assert_received_message(
-            expected_message=expected,
-            expected_channel=test_client.channel_send,
-            partial=True,
-        )
+            expected = (
+                "**Market**: <@702285048283398225>"
+                "\n**Week Of**: 05/17/20"
+                "\n**Likely High**: 154 (35% chance)"
+            )
+
+            test_client.assert_received_message(
+                expected_message=expected,
+                expected_channel=test_client.channel_send,
+                partial=True,
+            )
 
     # NOTE: This test takes a long time to run because of discord's rate limiting, but
     # faithfully tests our core functionality.

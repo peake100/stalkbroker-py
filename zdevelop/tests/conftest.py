@@ -16,6 +16,8 @@ from zdevelop.tests.client import DiscordTestClient
 dotenv.load_dotenv()
 
 os.environ["MONGO_URI"] = "mongodb://localhost:57017"
+os.environ["BACKEND_HOST"] = "stalks.us-west-1.elasticbeanstalk.com"
+os.environ["BACKEND_PORT"] = "50051"
 
 
 def run_stalkbroker_in_thread(loop: asyncio.AbstractEventLoop):
