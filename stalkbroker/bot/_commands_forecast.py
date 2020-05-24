@@ -1,9 +1,10 @@
 import discord.ext.commands
 import io
 import asyncio
+import grpclib.exceptions
 from ._bot import STALKBROKER
 from ._commands_ticker import fetch_message_ticker_info
-from stalkbroker import messages
+from stalkbroker import messages, errors
 from protogen.stalk_proto import models_pb2 as backend
 from typing import List
 
@@ -50,17 +51,25 @@ async def forecast(ctx: discord.ext.commands.Context) -> None:
         current_period=current_period,
     )
 
-    island_forecast: backend.Forecast = await (
-        STALKBROKER.client_forecaster.ForecastPrices(backend_ticker)
-    )
+    # Catch backend errors and raise them wrapped in a response error.
+    try:
+        island_forecast = await STALKBROKER.client_forecaster.ForecastPrices(
+            backend_ticker,
+        )
 
-    # Once we have the forecast, get the reporting service to generate a chart for it.s
-    req_chart = backend.ReqForecastChart(
-        ticker=backend_ticker, forecast=island_forecast, format=backend.ImageFormat.PNG
-    )
-    forecast_chart: backend.RespChart = await STALKBROKER.client_reporter.ForecastChart(
-        req_chart
-    )
+        # Once we have the forecast, get the reporting service to generate a chart for
+        # it
+        req_chart = backend.ReqForecastChart(
+            ticker=backend_ticker,
+            forecast=island_forecast,
+            format=backend.ImageFormat.PNG,
+        )
+        forecast_chart: backend.RespChart = (
+            await STALKBROKER.client_reporter.ForecastChart(req_chart)
+        )
+
+    except grpclib.exceptions.GRPCError as error:
+        raise errors.BackendError(ctx, error)
 
     image_buffer = io.BytesIO(forecast_chart.chart)
 

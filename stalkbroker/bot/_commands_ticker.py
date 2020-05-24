@@ -3,15 +3,28 @@ import re
 import asyncio
 import datetime
 import dataclasses
+import grpclib.exceptions
 from typing import Optional, Tuple, List, Coroutine
 
+from protogen.stalk_proto import models_pb2 as backend
 from stalkbroker import date_utils, errors, messages, models, constants
 
 from ._bot import STALKBROKER
 from ._commands_utils import confirm_execution
 
-
 _IMPORT_HELPER = None
+
+# Converts this bots price pattern enum values to our backend service model's enum
+# values.
+PATTERN_FROM_BACKEND = {
+    backend.PricePatterns.UNKNOWN: models.Patterns.UNKNOWN,
+    backend.PricePatterns.FLUCTUATING: models.Patterns.FLUCTUATING,
+    backend.PricePatterns.DECREASING: models.Patterns.DECREASING,
+    backend.PricePatterns.SMALLSPIKE: models.Patterns.SMALLSPIKE,
+    backend.PricePatterns.BIGSPIKE: models.Patterns.BIGSPIKE,
+}
+
+PATTERN_TO_BACKEND = {v: k for k, v in PATTERN_FROM_BACKEND.items()}
 
 
 # One nice thing about the data we need to get to update the ticker, is each argument
@@ -80,6 +93,9 @@ async def send_bulletins_to_all_user_servers(
     bulletin_coros: List[Coroutine] = list()
     for server_discord_id in user.servers:
         server = STALKBROKER.get_guild(server_discord_id)
+        # This user might be part of a server we don't have access to.
+        if server is None:
+            continue
         bulletin_coros.append(send_bulletin_to_server(ctx, server, bulletin, price))
 
     # Asynchronously send them all.
@@ -99,6 +115,17 @@ async def send_bulletins_to_all_user_servers(
     if error_list:
         # If there were errors, raise them wrapped in a BulkResponseError
         raise errors.BulkResponseError(error_list)
+
+
+def confirmed_pattern_from_forecast(forecast: backend.Forecast) -> models.Patterns:
+    p: backend.PotentialPattern
+    possible_patterns = [p for p in forecast.patterns if len(p.potential_weeks) > 0]
+    if possible_patterns == 1:
+        backend_pattern = possible_patterns[0].pattern
+    else:
+        backend_pattern = backend.UNKNOWN
+
+    return PATTERN_FROM_BACKEND[backend_pattern]
 
 
 async def update_ticker(
@@ -144,7 +171,7 @@ async def update_ticker(
 
     week_of = date_utils.previous_sunday(price_date)
 
-    await STALKBROKER.db.update_ticker(
+    user_ticker = await STALKBROKER.db.update_ticker_price(
         user=stalk_user,
         week_of=week_of,
         price_date=price_date,
@@ -152,7 +179,34 @@ async def update_ticker(
         price=price,
     )
 
-    # Add confirmation reactions to the original message.
+    # Now we need to make a forecast and check if we have a confirmed price pattern
+    # so that we can update it.
+    previous_pattern = await STALKBROKER.db.fetch_previous_pattern(
+        user=stalk_user, week_of_current=week_of,
+    )
+
+    current_period = user_ticker.phase_from_datetime(message_time_local)
+    if current_period is None:
+        current_period = 0
+
+    previous_pattern_backend = PATTERN_TO_BACKEND[previous_pattern]
+    ticker_backend = user_ticker.to_backend(
+        previous_pattern=previous_pattern_backend, current_period=current_period,
+    )
+
+    try:
+        island_forecast = await STALKBROKER.client_forecaster.ForecastPrices(
+            ticker_backend,
+        )
+    except grpclib.exceptions.GRPCError as error:
+        raise errors.BackendError(ctx, error)
+
+    # Update our weeks price pattern. It will be set as 'UNKNOWN' if there are multiple
+    # possible prices.
+    price_pattern = confirmed_pattern_from_forecast(island_forecast)
+    await STALKBROKER.db.update_ticker_pattern(stalk_user, week_of, price_pattern)
+
+    # Add confirmation reactions to the original message now that we are done.
     reactions = messages.REACTIONS.price_update_reactions(
         price_date=price_date,
         price_time_of_day=price_time_of_day,
@@ -168,6 +222,7 @@ async def update_ticker(
     if price_date.weekday() == date_utils.SUNDAY:
         return
 
+    # Send out bulletins as necessary
     bulletin = messages.bulletin_price_update(
         discord_user=ctx.author,
         price=price,

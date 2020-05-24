@@ -6,6 +6,8 @@ from typing import List, Coroutine, Union, Type
 
 from stalkbroker import errors, messages
 
+from ._classes import BackendError
+
 
 def _is_general_exception(error: Union[BaseException, Type[BaseException]]) -> bool:
     if isinstance(error, BaseException):
@@ -98,6 +100,9 @@ async def handle_command_error(
     # code. We'll want to fetch the original error and inspect it instead.
     if isinstance(error, discord.ext.commands.CommandInvokeError):
         error = error.original
+
+    if isinstance(error, BackendError):
+        error = error.convert_to_bot_error()
 
     if isinstance(error, errors.BulkResponseError):
         await _handle_bulk_error(ctx, error)

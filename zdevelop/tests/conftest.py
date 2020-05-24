@@ -220,18 +220,18 @@ def create_expected_ticker(
     ticker = models.Ticker(
         user_id=uuid.uuid4(), week_of=dates[0].date(), purchase_price=100 + base_price,
     )
-    ticker[0] = 101 + base_price
-    ticker[1] = 102 + base_price
-    ticker[2] = 103 + base_price
-    ticker[3] = 104 + base_price
-    ticker[4] = 105 + base_price
-    ticker[5] = 449 + base_price
-    ticker[6] = 450 + base_price
-    ticker[7] = 108 + base_price
-    ticker[8] = 560 + base_price
-    ticker[9] = 110 + base_price
-    ticker[10] = 111 + base_price
-    ticker[11] = 112 + base_price
+    ticker[0] = 87 + base_price
+    ticker[1] = 84 + base_price
+    ticker[2] = 80 + base_price
+    ticker[3] = 76 + base_price
+    ticker[4] = 72 + base_price
+    ticker[5] = 68 + base_price
+    ticker[6] = 64 + base_price
+    ticker[7] = 120 + base_price
+    ticker[8] = 180 + base_price
+    ticker[9] = 500 + base_price
+    ticker[10] = 160 + base_price
+    ticker[11] = 110 + base_price
 
     return ticker
 
@@ -245,7 +245,7 @@ def expected_ticker(phase_dates: List[datetime.datetime]) -> models.Ticker:
 @pytest.fixture
 def expected_ticker_user2(phase_dates: List[datetime.datetime]) -> models.Ticker:
     """The resulting ticker we expect to be created for messages sent on phase_dates."""
-    return create_expected_ticker(phase_dates, 100)
+    return create_expected_ticker(phase_dates, 1)
 
 
 @pytest.fixture

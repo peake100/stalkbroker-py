@@ -10,6 +10,7 @@ from ._error_messages import (
     error_imaginary_date,
     error_future_date,
     error_no_bulletin_channel,
+    error_impossible_ticker,
 )
 from ._reactions import REACTIONS
 from ._reports import report_ticker, report_forecast
@@ -25,6 +26,7 @@ from ._reports import report_ticker, report_forecast
     error_future_date,
     error_time_of_day_required,
     error_no_bulletin_channel,
+    error_impossible_ticker,
     bulletin_price_update,
     REACTIONS,
     report_ticker,

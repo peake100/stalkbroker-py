@@ -144,3 +144,19 @@ def error_time_of_day_required(user: discord.User) -> str:
         " please include either 'AM' or 'PM' in your memo like so:"
         " `$ticker 123 4/14 AM`."
     )
+
+
+def error_impossible_ticker(user: discord.User) -> str:
+    """
+    Error message returned when the user supplies a set of ticker values that should
+    not be possible.
+
+    :param user: The user who's command resulted in this error.
+
+    :returns: the formatted message.
+    """
+    return (
+        f"Huh. {user.mention}... I've... ummm... triple checked my calculations and"
+        " either our current understanding of economics is about to undergo a "
+        " revolution... or the prices for your island should not be possible."
+    )

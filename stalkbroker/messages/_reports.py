@@ -90,7 +90,7 @@ def report_forecast(
 
     info = {
         "market": discord_user.mention,
-        "Week of": ticker.week_of.strftime("%m/%d/%y"),
+        "week of": ticker.week_of.strftime("%m/%d/%y"),
         "likely high": (
             f"{most_likely.prices_future.max} ({format_chance(most_likely.chance)})"
         ),
@@ -109,6 +109,6 @@ def report_forecast(
     if has_any and current_period <= forecast.spikes.any.end:
         spike_earliest = forecast.spikes.any.start - current_period
         spike_earliest = max(spike_earliest, 0)
-        info["earliest spike"] = format_period_count(spike_earliest)
+        info["soonest spike"] = format_period_count(spike_earliest)
 
     return format_report("MARKET FORECAST", info)

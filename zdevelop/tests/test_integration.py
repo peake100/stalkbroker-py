@@ -726,7 +726,7 @@ class TestLifecycle:
 
         expected_phase = expected_ticker_week2[4]
         # Lets test that updating hostorical data does not trigger a bulletin
-        expected_phase.price = 800
+        expected_phase.price = 71
 
         expected_reactions = messages.REACTIONS.price_update_reactions(
             price_date=expected_phase.date,
@@ -758,21 +758,21 @@ class TestLifecycle:
         # Lets test every permutation of the order this command can go in
         "command,price",
         [
-            ("$ticker {} PM 4/14", 201),
-            ("$ticker {} 4/14 PM", 202),
-            ("$ticker PM {} 4/14", 203),
-            ("$ticker PM 4/14 {}", 204),
-            ("$ticker 4/14 PM {}", 205),
-            ("$ticker 4/14 {} PM", 206),
+            ("$ticker {} PM 4/17", 410),
+            ("$ticker {} 4/17 PM", 411),
+            ("$ticker PM {} 4/17", 412),
+            ("$ticker PM 4/17 {}", 413),
+            ("$ticker 4/17 PM {}", 414),
+            ("$ticker 4/17 {} PM", 415),
             # And once including a "bells" unit
-            ("$ticker {} bells PM 4/14", 207),
-            ("$ticker {} bells 4/14 PM", 208),
-            ("$ticker PM {} bells 4/14", 209),
-            ("$ticker PM 4/14 {} bells", 210),
-            ("$ticker 4/14 PM {} bells", 211),
-            ("$ticker 4/14 {} bells PM", 212),
+            ("$ticker {} bells PM 4/17", 416),
+            ("$ticker {} bells 4/17 PM", 417),
+            ("$ticker PM {} bells 4/17", 418),
+            ("$ticker PM 4/17 {} bells", 419),
+            ("$ticker 4/17 PM {} bells", 420),
+            ("$ticker 4/17 {} bells PM", 421),
             # Make sure we can parse dates with years
-            ("$ticker 4/14/2020 {} bells PM", 213),
+            ("$ticker 4/17/2020 {} bells PM", 422),
         ],
     )
     @mark_test
@@ -786,14 +786,18 @@ class TestLifecycle:
         price: int,
     ) -> None:
         """
-        In this test we are setting the price for Tuesday PM during Saturday AM.
+        In this test we are setting the price for Friday PM during Saturday AM. Friday
+        PM is the big spike period in our test data, so it gives us the greatest range
+        of possible values to play with.
         """
+        target_phase = 9
+
         friday_pm_message_time = datetime.datetime.combine(
             date=expected_ticker_week2.week_of + datetime.timedelta(days=6),
             time=datetime.time(hour=9),
         )
 
-        expected_phase = expected_ticker_week2[3]
+        expected_phase = expected_ticker_week2[target_phase]
         expected_reactions = messages.REACTIONS.price_update_reactions(
             price_date=expected_phase.date,
             price_time_of_day=models.TimeOfDay.PM,
@@ -820,7 +824,7 @@ class TestLifecycle:
             stalk_user, expected_ticker_week2.week_of
         )
 
-        phase_set = ticker_set[3]
+        phase_set = ticker_set[target_phase]
         assert phase_set == expected_phase
 
     @mark_test
@@ -921,6 +925,38 @@ class TestLifecycle:
             await test_client.event_messages_received.wait()
 
             expected_error = messages.error_time_of_day_required(test_client.user)
+
+            test_client.assert_received_message(
+                expected_error, expected_channel=test_client.channel_send,
+            )
+
+    @mark_test
+    async def test_impossible_ticker_error(
+        self,
+        expected_ticker: models.Ticker,
+        stalkdb: db.DBConnection,
+        test_client: DiscordTestClient,
+        base_sunday: datetime.date,
+    ):
+        """
+        Check that we return an error when a user tries to update a bell price for a
+        past date without specifying a time of day.
+        """
+        test_client.reset_test(1, 0)
+
+        tuesday_message_date = base_sunday + datetime.timedelta(days=2)
+        tuesday_message_time = datetime.datetime.combine(
+            tuesday_message_date, datetime.time(hour=12)
+        )
+
+        with test_client.freeze_time(tuesday_message_time):
+
+            command = f"$ticker 800"
+            await test_client.send(command)
+
+            await test_client.event_messages_received.wait()
+
+            expected_error = messages.error_impossible_ticker(test_client.user)
 
             test_client.assert_received_message(
                 expected_error, expected_channel=test_client.channel_send,
