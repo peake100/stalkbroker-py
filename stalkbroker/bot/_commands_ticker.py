@@ -2,8 +2,6 @@ import discord.ext.commands
 import re
 import asyncio
 import datetime
-import dataclasses
-import grpclib.exceptions
 from typing import Optional, Tuple, List, Coroutine
 
 from protogen.stalk_proto import models_pb2 as backend
@@ -11,20 +9,14 @@ from stalkbroker import date_utils, errors, messages, models, constants
 
 from ._bot import STALKBROKER
 from ._commands_utils import confirm_execution
+from ._consts import PATTERN_FROM_BACKEND
+from ._common import (
+    fetch_message_ticker_info,
+    get_forecast_from_backend,
+    MessageTickerInfo,
+)
 
 _IMPORT_HELPER = None
-
-# Converts this bots price pattern enum values to our backend service model's enum
-# values.
-PATTERN_FROM_BACKEND = {
-    backend.PricePatterns.UNKNOWN: models.Patterns.UNKNOWN,
-    backend.PricePatterns.FLUCTUATING: models.Patterns.FLUCTUATING,
-    backend.PricePatterns.DECREASING: models.Patterns.DECREASING,
-    backend.PricePatterns.SMALLSPIKE: models.Patterns.SMALLSPIKE,
-    backend.PricePatterns.BIGSPIKE: models.Patterns.BIGSPIKE,
-}
-
-PATTERN_TO_BACKEND = {v: k for k, v in PATTERN_FROM_BACKEND.items()}
 
 
 # One nice thing about the data we need to get to update the ticker, is each argument
@@ -181,25 +173,15 @@ async def update_ticker(
 
     # Now we need to make a forecast and check if we have a confirmed price pattern
     # so that we can update it.
-    previous_pattern = await STALKBROKER.db.fetch_previous_pattern(
-        user=stalk_user, week_of_current=week_of,
+    message_info = MessageTickerInfo(
+        discord_user=message.author,
+        stalk_user=stalk_user,
+        # We need to make sure we are fetching the previous pattern for the price time,
+        # not the current time.
+        user_time=datetime.datetime.combine(price_date, datetime.time()),
+        ticker=user_ticker,
     )
-
-    current_period = user_ticker.phase_from_datetime(message_time_local)
-    if current_period is None:
-        current_period = 0
-
-    previous_pattern_backend = PATTERN_TO_BACKEND[previous_pattern]
-    ticker_backend = user_ticker.to_backend(
-        previous_pattern=previous_pattern_backend, current_period=current_period,
-    )
-
-    try:
-        island_forecast = await STALKBROKER.client_forecaster.ForecastPrices(
-            ticker_backend,
-        )
-    except grpclib.exceptions.GRPCError as error:
-        raise errors.BackendError(ctx, error)
+    _, island_forecast = await get_forecast_from_backend(ctx, message_info)
 
     # Update our weeks price pattern. It will be set as 'UNKNOWN' if there are multiple
     # possible prices.
@@ -230,51 +212,6 @@ async def update_ticker(
         time_of_day=price_time_of_day,
     )
     await send_bulletins_to_all_user_servers(ctx, stalk_user, bulletin, price)
-
-
-@dataclasses.dataclass
-class MessageTickerInfo:
-    discord_user: discord.User
-    stalk_user: models.User
-    user_time: datetime.datetime
-    ticker: models.Ticker
-
-
-async def fetch_message_ticker_info(
-    ctx: discord.ext.commands.Context, date_arg: Optional[str]
-) -> MessageTickerInfo:
-    message: discord.Message = ctx.message
-
-    # If another user is mentioned in the message, we want to pull their ticker instead,
-    # that way you can look up other's prices.
-    try:
-        discord_user: discord.User = next(m for m in message.mentions)
-    except StopIteration:
-        discord_user = message.author
-
-    stalk_user = await STALKBROKER.db.fetch_user(discord_user, message.guild)
-    # If we don't know the user's timezone, then we won't be able to adjust the message
-    # time reliably.
-    if stalk_user.timezone is None:
-        raise errors.UnknownUserTimezoneError(ctx, discord_user)
-
-    # Get the time of the message adjusted for the user's timezone
-    message_time_local = date_utils.get_context_local_dt(ctx, stalk_user.timezone)
-
-    # Decide whether to use the message time or a date included in the command
-    requested_date = date_utils.deduce_price_date(ctx, date_arg, stalk_user.timezone)
-
-    week_of = date_utils.previous_sunday(requested_date)
-    user_ticker = await STALKBROKER.db.fetch_ticker(stalk_user, week_of)
-
-    result = MessageTickerInfo(
-        discord_user=discord_user,
-        stalk_user=stalk_user,
-        user_time=message_time_local,
-        ticker=user_ticker,
-    )
-
-    return result
 
 
 async def fetch_ticker(
