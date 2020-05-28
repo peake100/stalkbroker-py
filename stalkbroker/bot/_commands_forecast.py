@@ -5,7 +5,7 @@ import grpclib.exceptions
 
 from protogen.stalk_proto import models_pb2 as backend
 
-from stalkbroker import messages, errors
+from stalkbroker import messages, errors, date_utils
 from ._bot import STALKBROKER
 from ._common import (
     fetch_message_ticker_info,
@@ -40,6 +40,9 @@ async def forecast(ctx: discord.ext.commands.Context) -> None:
     # Get the user's latest ticker info from the db
     info = await fetch_message_ticker_info(ctx, date_arg=None)
     backend_ticker, island_forecast = await get_forecast_from_backend(ctx, info)
+
+    if info.user_time.weekday() == date_utils.SUNDAY:
+        backend_ticker.current_period = -1
 
     # Once we have the forecast, get the reporting service to generate a chart for
     # it
