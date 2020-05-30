@@ -455,6 +455,7 @@ global___ForecastSpikes = ForecastSpikes
 
 class Forecast(google___protobuf___message___Message):
     DESCRIPTOR: google___protobuf___descriptor___Descriptor = ...
+    heat = ...  # type: builtin___int
     @property
     def prices_summary(self) -> global___PricesSummary: ...
     @property
@@ -476,6 +477,7 @@ class Forecast(google___protobuf___message___Message):
         patterns: typing___Optional[
             typing___Iterable[global___PotentialPattern]
         ] = None,
+        heat: typing___Optional[builtin___int] = None,
     ) -> None: ...
     if sys.version_info >= (3,):
         @classmethod
@@ -501,6 +503,8 @@ class Forecast(google___protobuf___message___Message):
     def ClearField(
         self,
         field_name: typing_extensions___Literal[
+            "heat",
+            b"heat",
             "patterns",
             b"patterns",
             "prices_future",

@@ -1,4 +1,4 @@
-from ._bulletins import bulletin_price_update
+from ._bulletins import bulletin_price_update, bulletin_forecast
 
 from ._error_messages import (
     error_unknown_timezone,
@@ -28,6 +28,7 @@ from ._reports import report_ticker, report_forecast
     error_no_bulletin_channel,
     error_impossible_ticker,
     bulletin_price_update,
+    bulletin_forecast,
     REACTIONS,
     report_ticker,
     report_forecast,

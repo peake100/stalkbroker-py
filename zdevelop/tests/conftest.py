@@ -6,8 +6,10 @@ import dotenv
 import datetime
 import pytz
 import uuid
+import grpclib.client
 from typing import List
 
+from protogen.stalk_proto import forecaster_grpc as forecaster
 from stalkbroker import bot, db, models, constants
 
 from zdevelop.tests.client import DiscordTestClient
@@ -135,6 +137,18 @@ async def stalkdb(event_loop: asyncio.AbstractEventLoop,) -> db.DBConnection:
     await connection.connect()
 
     yield connection
+
+
+@pytest.fixture(scope="class")
+async def forecaster_stub(
+    event_loop: asyncio.AbstractEventLoop,
+) -> forecaster.StalkForecasterStub:
+    backend_host = os.environ["BACKEND_HOST"]
+    backend_port = int(os.environ["BACKEND_PORT"])
+
+    channel = grpclib.client.Channel(host=backend_host, port=backend_port)
+    stub = forecaster.StalkForecasterStub(channel=channel)
+    return stub
 
 
 @pytest.fixture()

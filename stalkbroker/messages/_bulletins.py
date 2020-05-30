@@ -2,9 +2,11 @@ import datetime
 import discord
 from typing import Optional
 
+from protogen.stalk_proto import models_pb2 as backend
 from stalkbroker import models, ac_names, date_utils
 
 from ._formatting import bulletin
+from ._common import forecast_info_common
 
 
 def _bulletin_nook_price_update(
@@ -45,3 +47,13 @@ def bulletin_price_update(
         raise ValueError("Must supply time of day for nook price bulletin.")
 
     return _bulletin_nook_price_update(discord_user, price, date_local, time_of_day)
+
+
+def bulletin_forecast(
+    discord_user: discord.User,
+    ticker: models.Ticker,
+    forecast: backend.Forecast,
+    current_period: int,
+) -> str:
+    info = forecast_info_common(discord_user, ticker, forecast, current_period)
+    return bulletin("market forecast watch", info)

@@ -9,6 +9,8 @@ from asynctest import patch
 from dataclasses import dataclass, field
 from typing import Tuple, List, Optional, Mapping, Callable
 
+from protogen.stalk_proto import forecaster_grpc as forecaster
+from protogen.stalk_proto import models_pb2 as backend
 from stalkbroker import bot, db, messages, models, constants
 
 from zdevelop.tests.client import DiscordTestClient
@@ -437,6 +439,7 @@ class TestLifecycle:
             expected = (
                 "**Market**: <@702285048283398225>"
                 "\n**Week Of**: 05/17/20"
+                "\n**Heat**: 196"
                 "\n**Likely High**: 154 (35% chance)"
             )
 
@@ -455,6 +458,7 @@ class TestLifecycle:
         self,
         test_client: DiscordTestClient,
         test_client2: DiscordTestClient,
+        forecaster_stub: forecaster.StalkForecasterStub,
         phase_dates: List[datetime.datetime],
         expected_ticker: models.Ticker,
         expected_ticker_user2: models.Ticker,
@@ -483,6 +487,7 @@ class TestLifecycle:
 
         # Freeze time at the date we want so we are sending the message "now".
         with client_primary.freeze_time(message_time_local):
+
             if message_time_local.hour < 12:
                 time_of_day = models.TimeOfDay.AM
             else:
@@ -494,10 +499,32 @@ class TestLifecycle:
                 message_datetime_local=message_time_local,
             )
 
+            expected_messages = 0
+            expected_price_bulletin = False
+            expected_forecast_bulletin = False
             if price >= 450 and message_time_local.date().weekday() != 6:
-                expected_messages = 1
+                expected_messages += 1
+                expected_price_bulletin = True
             else:
-                expected_messages = 0
+                ticker_backend = expected_ticker.to_backend(
+                    previous_pattern=backend.PricePatterns.UNKNOWN,
+                    current_period=max(ticker_index, 0),
+                )
+                for _ in range(ticker_index, 12):
+                    try:
+                        ticker_backend.prices.pop(ticker_index + 1)
+                    except IndexError:
+                        continue
+
+                # We need to get a copy of the forecast so we know whether a forecast
+                # bulletin is expected
+                forecast: backend.Forecast = await forecaster_stub.ForecastPrices(
+                    ticker_backend
+                )
+
+                if forecast.prices_future.max > 450 and forecast.heat > 450:
+                    expected_forecast_bulletin = True
+                    expected_messages += 1
 
             # Now lets test setting the price
             client_primary.reset_test(
@@ -514,12 +541,21 @@ class TestLifecycle:
 
             if expected_messages == 1:
                 # And also check that the bulletin went out to the correct channel
-                expected_bulletin = messages.bulletin_price_update(
-                    discord_user=client_primary.user,
-                    price=price,
-                    date_local=message_time_local.date(),
-                    time_of_day=time_of_day,
-                )
+                if expected_price_bulletin:
+                    expected_bulletin = messages.bulletin_price_update(
+                        discord_user=client_primary.user,
+                        price=price,
+                        date_local=message_time_local.date(),
+                        time_of_day=time_of_day,
+                    )
+                else:
+                    expected_bulletin = messages.bulletin_forecast(
+                        discord_user=client_primary.user,
+                        ticker=expected_ticker,
+                        forecast=forecast,
+                        current_period=ticker_index,
+                    )
+
                 expected_bulletin = ticker_report_remove_memo(
                     expected_bulletin, guild=client_primary.guild, bulletin=True
                 )
@@ -728,7 +764,7 @@ class TestLifecycle:
         )
 
         expected_phase = expected_ticker_week2[4]
-        # Lets test that updating hostorical data does not trigger a bulletin
+        # Lets test that updating historical data does not trigger a bulletin
         expected_phase.price = 71
 
         expected_reactions = messages.REACTIONS.price_update_reactions(
@@ -795,7 +831,7 @@ class TestLifecycle:
         """
         target_phase = 9
 
-        friday_pm_message_time = datetime.datetime.combine(
+        saturday_am = datetime.datetime.combine(
             date=expected_ticker_week2.week_of + datetime.timedelta(days=6),
             time=datetime.time(hour=9),
         )
@@ -804,7 +840,7 @@ class TestLifecycle:
         expected_reactions = messages.REACTIONS.price_update_reactions(
             price_date=expected_phase.date,
             price_time_of_day=models.TimeOfDay.PM,
-            message_datetime_local=friday_pm_message_time,
+            message_datetime_local=saturday_am,
         )
 
         test_client.reset_test(0, expected_reactions=len(expected_reactions) + 1)
@@ -812,7 +848,7 @@ class TestLifecycle:
         # Set our unique price for this test
         expected_phase.price = price
 
-        with test_client.freeze_time(friday_pm_message_time):
+        with test_client.freeze_time(saturday_am):
 
             # Lets move the commands around to check that we can do that
             command = command.format(price)

@@ -2,6 +2,7 @@ import discord.ext.commands
 import re
 import asyncio
 import datetime
+import dataclasses
 from typing import Optional, Tuple, List, Coroutine
 
 from protogen.stalk_proto import models_pb2 as backend
@@ -13,6 +14,7 @@ from ._consts import PATTERN_FROM_BACKEND
 from ._common import (
     fetch_message_ticker_info,
     get_forecast_from_backend,
+    get_forecast_chart_from_backend,
     MessageTickerInfo,
 )
 
@@ -34,61 +36,153 @@ REGEX_ARG_DATE = re.compile(r"\d+/\d+(/\d+)?")
 REGEX_ARG_TIME_OF_DAY = re.compile(r"AM|PM", flags=re.IGNORECASE)
 
 
-async def send_bulletin_to_server(
-    ctx: discord.ext.commands.Context, server: discord.Guild, bulletin: str, price: int,
+@dataclasses.dataclass
+class BulletinInfo(MessageTickerInfo):
+    """Holds additional information for sending bulletins over MessageTickerInfo."""
+
+    ctx: discord.ext.commands.Context
+    """The message context."""
+    price: int
+    """The current price on the user's island."""
+    price_date: datetime.date
+    """The date this price belongs to."""
+    price_time_of_day: Optional[models.TimeOfDay]
+    """The time of day this price belongs to."""
+    ticker_backend: backend.Ticker
+    """The backend ticker object for this bulletin."""
+    forecast: backend.Forecast
+    """The forecast for this user."""
+
+
+def get_bulletin_role(server: models.Server) -> discord.Role:
+    guild: discord.Guild = STALKBROKER.get_guild(server.discord_id)
+
+    bulletin_role: discord.Role = discord.utils.get(
+        guild.roles, name=constants.BULLETIN_ROLE
+    )
+    return bulletin_role
+
+
+def build_ticker_bulletin(server: models.Server, info: BulletinInfo,) -> Optional[str]:
+    # If the price is bellow the minimum threshold for the server, then we can abort.
+    if info.price < server.bulletin_minimum:
+        return None
+
+    # No price bulletins on Sunday.
+    if info.price_date.weekday() == date_utils.SUNDAY:
+        return None
+
+    # We don't need to send an update if we are not updating the current price period
+    if not date_utils.is_price_period(
+        info.user_time, info.price_date, info.price_time_of_day
+    ):
+        return None
+
+    assert info.price_time_of_day is not None
+
+    bulletin = messages.bulletin_price_update(
+        discord_user=info.discord_user,
+        price=info.price,
+        date_local=info.price_date,
+        time_of_day=info.price_time_of_day,
+    )
+    return bulletin
+
+
+async def build_forecast_bulletin(
+    server: models.Server, info: BulletinInfo,
+) -> Tuple[Optional[str], Optional[discord.File]]:
+    """Returns bulletin text and forecast chart file embed if bulletin required."""
+    heat = info.forecast.heat
+    max_future = info.forecast.prices_future.max
+    requirement = server.bulletin_minimum
+
+    # If the heat or max price are below the serve threshold, do not send
+    if heat < server.bulletin_minimum or max_future < requirement:
+        return None, None
+
+    # -1 values break the forecasting service, but are needed by the charting service
+    # for cursor placement on sundays, so check here if we need to tweak the backend
+    # ticker.
+    if info.user_time.weekday() == date_utils.SUNDAY:
+        info.ticker_backend.current_period = -1
+
+    chart_file = await get_forecast_chart_from_backend(
+        info.ctx, info, info.ticker_backend, info.forecast,
+    )
+
+    bulletin = messages.bulletin_forecast(
+        info.discord_user,
+        ticker=info.ticker,
+        forecast=info.forecast,
+        current_period=info.ticker_backend.current_period,
+    )
+
+    return bulletin, chart_file
+
+
+async def send_bulletins_to_server(
+    server: discord.Guild, bulletin_info: BulletinInfo,
 ) -> None:
     """
     Send a price update bulletin to the server.
 
-    :param ctx: message context passed in by discord.py to the calling command.
     :param server: the discord server we need to send the bulletin to.
-    :param bulletin: the text content to send.
-    :param price: the current price.
+    :param bulletin_info: information required to send the bulletins.
 
     :raises NoBulletinChannelError: When the server does not have the channel it wants
         to receive bulletins on set.
     """
     server_info = await STALKBROKER.db.fetch_server(server)
 
-    # If the price is bellow the minimum threshold for the server, then we can abort.
-    if price < server_info.bulletin_minimum:
-        return
-
-    guild: discord.Guild = STALKBROKER.get_guild(server_info.discord_id)
     # If the server has not set a bulletin channel, raise an error to be returned to
     # the user.
     if server_info.bulletin_channel is None:
-        raise errors.NoBulletinChannelError(ctx=ctx, guild=guild)
+        raise errors.NoBulletinChannelError(ctx=bulletin_info.ctx, guild=server)
 
-    bulletin_role: discord.Role = discord.utils.get(
-        guild.roles, name=constants.BULLETIN_ROLE
+    bulletin_channel: discord.TextChannel = STALKBROKER.get_channel(
+        server_info.bulletin_channel,
     )
-    bulletin = f"{bulletin}\n{bulletin_role.mention}"
+    if bulletin_channel is None:
+        raise errors.NoBulletinChannelError(ctx=bulletin_info.ctx, guild=server)
 
-    channel: discord.TextChannel = STALKBROKER.get_channel(server_info.bulletin_channel)
-    await channel.send(bulletin)
+    # Get the bulletin role
+    bulletin_role = get_bulletin_role(server_info)
+
+    # Set the default file value to none
+    file: Optional[discord.File] = None
+    bulletin_text = build_ticker_bulletin(server_info, bulletin_info)
+
+    # If there is no price bulletin, check for a forecast bulletin
+    if bulletin_text is None:
+        bulletin_text, file = await build_forecast_bulletin(server_info, bulletin_info)
+
+    if bulletin_text is None:
+        return
+
+    bulletin = f"{bulletin_text}\n{bulletin_role.mention}"
+
+    await bulletin_channel.send(bulletin, file=file)
 
 
-async def send_bulletins_to_all_user_servers(
-    ctx: discord.ext.commands.Context, user: models.User, bulletin: str, price: int,
-) -> None:
+async def send_bulletins_to_all_user_servers(bulletin_info: BulletinInfo,) -> None:
     """
     For a given user, send a price update bulletin to every server they are a part of
     that this bot is invited to.
 
-    :param ctx: message context passed in by discord.py to the calling command.
-    :param user: The stalkbroker user data for the user with the price update.
-    :param bulletin: the text content to send.
-    :param price: the current price.
+    :param bulletin_info: All data needed to send server bulletins.
     """
+
     # Build a list of bulletins to send out.
     bulletin_coros: List[Coroutine] = list()
-    for server_discord_id in user.servers:
+    for server_discord_id in bulletin_info.stalk_user.servers:
         server = STALKBROKER.get_guild(server_discord_id)
         # This user might be part of a server we don't have access to.
         if server is None:
             continue
-        bulletin_coros.append(send_bulletin_to_server(ctx, server, bulletin, price))
+
+        this_coro = send_bulletins_to_server(server, bulletin_info)
+        bulletin_coros.append(this_coro)
 
     # Asynchronously send them all.
     done, _ = await asyncio.wait(bulletin_coros)
@@ -118,6 +212,18 @@ def confirmed_pattern_from_forecast(forecast: backend.Forecast) -> models.Patter
         backend_pattern = backend.UNKNOWN
 
     return PATTERN_FROM_BACKEND[backend_pattern]
+
+
+def is_bulletin_possible(bulletin_info: BulletinInfo,) -> bool:
+    """CHeck whether a bulletin could go out for ANY server, regardless of settings."""
+    # We don't need to send a price for a previous week
+    if date_utils.previous_sunday(
+        bulletin_info.price_date
+    ) != date_utils.previous_sunday(bulletin_info.user_time.date()):
+        return False
+
+    # Otherwise let it pass to checking individual server criteria
+    return True
 
 
 async def update_ticker(
@@ -173,19 +279,23 @@ async def update_ticker(
 
     # Now we need to make a forecast and check if we have a confirmed price pattern
     # so that we can update it.
+    current_period = user_ticker.phase_from_datetime(message_time_local)
+    if current_period is None:
+        current_period = 0
+
     message_info = MessageTickerInfo(
         discord_user=message.author,
         stalk_user=stalk_user,
-        # We need to make sure we are fetching the previous pattern for the price time,
-        # not the current time.
-        user_time=datetime.datetime.combine(price_date, datetime.time()),
+        price_date=price_date,
+        user_time=message_time_local,
         ticker=user_ticker,
+        current_period=current_period,
     )
-    _, island_forecast = await get_forecast_from_backend(ctx, message_info)
+    ticker_backend, forecast = await get_forecast_from_backend(ctx, message_info)
 
     # Update our weeks price pattern. It will be set as 'UNKNOWN' if there are multiple
     # possible prices.
-    price_pattern = confirmed_pattern_from_forecast(island_forecast)
+    price_pattern = confirmed_pattern_from_forecast(forecast)
     await STALKBROKER.db.update_ticker_pattern(stalk_user, week_of, price_pattern)
 
     # Add confirmation reactions to the original message now that we are done.
@@ -196,22 +306,26 @@ async def update_ticker(
     )
     await confirm_execution(ctx, reactions)
 
-    if not date_utils.is_price_period(
-        message_time_local, price_date, price_time_of_day
-    ):
-        return
-
-    if price_date.weekday() == date_utils.SUNDAY:
-        return
-
-    # Send out bulletins as necessary
-    bulletin = messages.bulletin_price_update(
-        discord_user=ctx.author,
+    # Get ready to send out bulletins.
+    bulletin_info = BulletinInfo(
+        ctx=ctx,
+        stalk_user=stalk_user,
+        discord_user=message.author,
         price=price,
-        date_local=price_date,
-        time_of_day=price_time_of_day,
+        price_date=price_date,
+        price_time_of_day=price_time_of_day,
+        ticker=user_ticker,
+        ticker_backend=ticker_backend,
+        forecast=forecast,
+        user_time=message_time_local,
+        current_period=current_period,
     )
-    await send_bulletins_to_all_user_servers(ctx, stalk_user, bulletin, price)
+
+    # If a bulletin would never go out to any server, we are done.
+    if not is_bulletin_possible(bulletin_info):
+        return
+
+    await send_bulletins_to_all_user_servers(bulletin_info)
 
 
 async def fetch_ticker(

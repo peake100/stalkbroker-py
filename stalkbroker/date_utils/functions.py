@@ -185,11 +185,9 @@ def previous_sunday(anchor_date: datetime.date) -> datetime.date:
     if isinstance(anchor_date, datetime.datetime):
         anchor_date = anchor_date.date()
 
-    i = 1
     candidate_date = anchor_date
-    while True:
-        i -= 1
 
+    while True:
         if candidate_date.weekday() == SUNDAY:
             break
 
