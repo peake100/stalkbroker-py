@@ -439,7 +439,7 @@ class TestLifecycle:
             expected = (
                 "**Market**: <@702285048283398225>"
                 "\n**Week Of**: 05/17/20"
-                "\n**Heat**: 196"
+                "\n**Heat**: 207"
                 "\n**Likely High**: 154 (35% chance)"
             )
 
