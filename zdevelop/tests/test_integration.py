@@ -525,6 +525,7 @@ class TestLifecycle:
                 if forecast.prices_future.max > 450 and forecast.heat > 450:
                     expected_forecast_bulletin = True
                     expected_messages += 1
+                    expected_reactions.append(messages.REACTIONS.CONFIRM_FORECAST)
 
             # Now lets test setting the price
             client_primary.reset_test(
@@ -539,7 +540,7 @@ class TestLifecycle:
             await client_primary.wait()
             await client_secondary.wait()
 
-            if expected_messages == 1:
+            if expected_price_bulletin or expected_forecast_bulletin:
                 # And also check that the bulletin went out to the correct channel
                 if expected_price_bulletin:
                     expected_bulletin = messages.bulletin_price_update(

@@ -101,15 +101,24 @@ async def build_forecast_bulletin(
     if heat < server.bulletin_minimum or max_future < requirement:
         return None, None
 
+    # send a reaction to the client to indicate we are sending a forecast for this
+    # ticker. We'll await this simultaneously with the request to get the chart.
+    message: discord.Message = info.ctx.message
+    react_coro = message.add_reaction(messages.REACTIONS.CONFIRM_FORECAST)
+
     # -1 values break the forecasting service, but are needed by the charting service
     # for cursor placement on sundays, so check here if we need to tweak the backend
     # ticker.
     if info.user_time.weekday() == date_utils.SUNDAY:
         info.ticker_backend.current_period = -1
 
-    chart_file = await get_forecast_chart_from_backend(
+    forecast_coro = get_forecast_chart_from_backend(
         info.ctx, info, info.ticker_backend, info.forecast,
     )
+
+    # await both our forecast confirmation to the user and the chart request.
+    chart_file: discord.File
+    _, chart_file = await asyncio.gather(react_coro, forecast_coro)
 
     bulletin = messages.bulletin_forecast(
         info.discord_user,
@@ -299,12 +308,14 @@ async def update_ticker(
     await STALKBROKER.db.update_ticker_pattern(stalk_user, week_of, price_pattern)
 
     # Add confirmation reactions to the original message now that we are done.
+    coroutines: List[Coroutine] = list()
     reactions = messages.REACTIONS.price_update_reactions(
         price_date=price_date,
         price_time_of_day=price_time_of_day,
         message_datetime_local=message_time_local,
     )
-    await confirm_execution(ctx, reactions)
+    confirm_coro = confirm_execution(ctx, reactions)
+    coroutines.append(confirm_coro)
 
     # Get ready to send out bulletins.
     bulletin_info = BulletinInfo(
@@ -321,11 +332,13 @@ async def update_ticker(
         current_period=current_period,
     )
 
-    # If a bulletin would never go out to any server, we are done.
-    if not is_bulletin_possible(bulletin_info):
-        return
+    # If a bulletin would never go out to any server, we don't need to do anything,
+    # otherwise add it to our list of coroutines to execute.
+    if is_bulletin_possible(bulletin_info):
+        bulletin_coro = send_bulletins_to_all_user_servers(bulletin_info)
+        coroutines.append(bulletin_coro)
 
-    await send_bulletins_to_all_user_servers(bulletin_info)
+    await asyncio.gather(*coroutines)
 
 
 async def fetch_ticker(
