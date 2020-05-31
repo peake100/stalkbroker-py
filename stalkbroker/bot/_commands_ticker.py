@@ -215,7 +215,7 @@ async def send_bulletins_to_all_user_servers(bulletin_info: BulletinInfo,) -> No
 def confirmed_pattern_from_forecast(forecast: backend.Forecast) -> models.Patterns:
     p: backend.PotentialPattern
     possible_patterns = [p for p in forecast.patterns if len(p.potential_weeks) > 0]
-    if possible_patterns == 1:
+    if len(possible_patterns) == 1:
         backend_pattern = possible_patterns[0].pattern
     else:
         backend_pattern = backend.UNKNOWN
