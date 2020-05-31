@@ -94,7 +94,7 @@ async def set_bulletins_minimum_heat(
         is used as the bulletin channel.
     :param heat_minimum: the minimum heat score to set for sending a forecast bulletin.
     """
-    await STALKBROKER.db.server_set_bulletin_minimum(ctx.guild, heat_minimum)
+    await STALKBROKER.db.server_set_heat_minimum(ctx.guild, heat_minimum)
     await confirm_execution(ctx, [messages.REACTIONS.CONFIRM_HEAT_MINIMUM])
 
 
