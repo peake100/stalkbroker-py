@@ -50,7 +50,7 @@ def forecast_info_common(
         "market": discord_user.mention,
         "week of": ticker.week_of.strftime("%m/%d/%y"),
         "heat": forecast.heat,
-        "likely average": f"{likely_average} {format_chance(most_likely.chance)}",
+        "likely average": f"{likely_average} ({format_chance(most_likely.chance)})",
     }
 
     if has_any and current_period <= forecast.spikes.any.end:
