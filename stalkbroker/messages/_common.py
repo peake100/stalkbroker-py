@@ -50,16 +50,6 @@ def forecast_info_common(
         ),
     }
 
-    if has_big:
-        info[
-            "big spike"
-        ] = f"{big_spike.prices_future.max} ({format_chance(big_spike.chance)})"
-
-    if has_small:
-        info[
-            "small spike"
-        ] = f"{small_spike.prices_future.max} ({format_chance(small_spike.chance)})"
-
     if has_any and current_period <= forecast.spikes.any.end:
         spike_earliest = forecast.spikes.any.start - current_period
         spike_earliest = max(spike_earliest, 0)
