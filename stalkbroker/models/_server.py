@@ -19,4 +19,9 @@ class Server:
     bulletin_channel: Optional[int] = None
     """discord id of a server channel to send price bulletins to"""
     bulletin_minimum: int = constants.BULLETIN_MINIMUM
-    """the buy threshold at which we want to @here"""
+    """the nook offer threshold at which to tag the investor role on price bulletins."""
+    heat_minimum: int = constants.HEAT_MINIMUM
+    """
+    the minimum heat to auto-generate a chart and tag then investor role on forecasts
+    after ticker updates.
+    """

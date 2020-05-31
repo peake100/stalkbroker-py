@@ -23,6 +23,7 @@ class _Reactions:
 
     CONFIRM_BULLETIN_CHANNEL = "📈"
     CONFIRM_BULLETIN_MINIMUM = "💰"
+    CONFIRM_HEAT_MINIMUM = "🔥"
 
     CONFIRM_FORECAST = "🌧️"
 

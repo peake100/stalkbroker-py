@@ -420,6 +420,42 @@ class TestLifecycle:
         )
 
     @mark_test
+    async def test_bulletin_minimum_db(
+        self, stalkdb: db.DBConnection, test_client: DiscordTestClient
+    ):
+        """
+        Tests sending the command to set the bulletin channel.
+        """
+        server_info = await stalkdb.fetch_server(test_client.guild)
+        assert server_info.bulletin_minimum == 450
+
+    @mark_test
+    async def test_set_heat_minimum(
+        self, stalkdb: db.DBConnection, test_client: DiscordTestClient
+    ):
+        """
+        Tests sending the command to set the bulletin channel.
+        """
+        test_client.reset_test(expected_messages=0, expected_reactions=2)
+
+        await test_client.send_bulletin("$bulletins heat 440")
+        await test_client.wait()
+
+        test_client.assert_received_confirmation(
+            [messages.REACTIONS.CONFIRM_HEAT_MINIMUM]
+        )
+
+    @mark_test
+    async def test_heat_minimum_db(
+        self, stalkdb: db.DBConnection, test_client: DiscordTestClient
+    ):
+        """
+        Tests sending the command to set the bulletin channel.
+        """
+        server_info = await stalkdb.fetch_server(test_client.guild)
+        assert server_info.heat_minimum == 440
+
+    @mark_test
     async def test_get_forecast(self, test_client: DiscordTestClient):
         """
         Tests that we can get a forecast chart for the beginning of the week.

@@ -77,6 +77,28 @@ async def set_bulletins_minimum(
 
 
 @bulletins.command(
+    name="heat",
+    pass_context=True,
+    help=(
+        "set the minimum heat value for a forecast bulletin to be sent to the bulletin"
+        " channel"
+    ),
+)
+async def set_bulletins_minimum_heat(
+    ctx: discord.ext.commands.Context, heat_minimum: int,
+) -> None:
+    """
+    Sets the channel a server wishes bulletins to be sent to.
+
+    :param ctx: message context passed in by discord.py. The channel on this context
+        is used as the bulletin channel.
+    :param heat_minimum: the minimum heat score to set for sending a forecast bulletin.
+    """
+    await STALKBROKER.db.server_set_heat_minimum(ctx.guild, heat_minimum)
+    await confirm_execution(ctx, [messages.REACTIONS.CONFIRM_HEAT_MINIMUM])
+
+
+@bulletins.command(
     name="subscribe",
     pass_context=True,
     help="Get notified when a high-price turnip offer occurs on another island. Signs"

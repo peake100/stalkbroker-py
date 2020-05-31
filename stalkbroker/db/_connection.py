@@ -193,6 +193,22 @@ class DBConnection:
         update["$set"]["bulletin_minimum"] = price_threshold
         return await self._upsert_server(query, update)
 
+    async def server_set_heat_minimum(
+        self, server: discord.Guild, heat_threshold: int,
+    ) -> models.Server:
+        """
+        Set the threshold at which the server send out a price bulletin.
+
+        :param server: the server to set the threshold for.
+        :param heat_threshold: the heat score requirement.
+
+        :returns: the updated server data.
+        """
+        query = _query_discord_id(server.id)
+        update = _new_update()
+        update["$set"]["heat_minimum"] = heat_threshold
+        return await self._upsert_server(query, update)
+
     @staticmethod
     def _add_server_to_user_update(
         update: _UpdateType, server: Optional[discord.Guild]

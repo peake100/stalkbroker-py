@@ -95,10 +95,9 @@ async def build_forecast_bulletin(
     """Returns bulletin text and forecast chart file embed if bulletin required."""
     heat = info.forecast.heat
     max_future = info.forecast.prices_future.max
-    requirement = server.bulletin_minimum
 
     # If the heat or max price are below the serve threshold, do not send
-    if heat < server.bulletin_minimum or max_future < requirement:
+    if heat < server.heat_minimum or max_future < server.bulletin_minimum:
         return None, None
 
     # send a reaction to the client to indicate we are sending a forecast for this
