@@ -440,7 +440,7 @@ class TestLifecycle:
                 "**Market**: <@702285048283398225>"
                 "\n**Week Of**: 05/17/20"
                 "\n**Heat**: 207"
-                "\n**Likely High**: 154 (35% chance)"
+                "\n**Likely Average**: 118"
             )
 
             test_client.assert_received_message(
@@ -636,6 +636,7 @@ class TestLifecycle:
         stored_ticker = await stalkdb.fetch_ticker(stalk_user, expected_ticker.week_of)
 
         expected_ticker.user_id = stalk_user.id
+        expected_ticker.final_pattern = models.Patterns.BIGSPIKE
 
         assert expected_ticker == stored_ticker
 
@@ -657,6 +658,7 @@ class TestLifecycle:
         )
 
         expected_ticker_user2.user_id = stalk_user.id
+        expected_ticker_user2.final_pattern = models.Patterns.BIGSPIKE
 
         assert expected_ticker_user2 == stored_ticker
 

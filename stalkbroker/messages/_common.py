@@ -41,13 +41,16 @@ def forecast_info_common(
     )
     has_any = has_big or has_small
 
+    likely_average_float = (
+        (most_likely.prices_future.max + most_likely.prices_future.guaranteed) / 2
+    )
+    likely_average = int(round(likely_average_float, 0))
+
     info: Dict[str, Any] = {
         "market": discord_user.mention,
         "week of": ticker.week_of.strftime("%m/%d/%y"),
         "heat": forecast.heat,
-        "likely high": (
-            f"{most_likely.prices_future.max} ({format_chance(most_likely.chance)})"
-        ),
+        "likely average": likely_average,
     }
 
     if has_any and current_period <= forecast.spikes.any.end:
