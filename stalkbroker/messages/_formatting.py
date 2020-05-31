@@ -15,7 +15,7 @@ def format_period_count(periods: int) -> str:
         half_days = " 1/2"
 
     plural = ""
-    if days <= 1 and half_days == "":
+    if days != 1 or half_days != "":
         plural = "s"
 
     return f"{days}{half_days} day{plural}"

@@ -4,7 +4,7 @@ from typing import Dict, Any, Optional
 from stalkbroker import models
 from protogen.stalk_proto import models_pb2 as backend
 
-from ._formatting import format_chance, format_period_count
+from ._formatting import format_period_count, format_chance
 
 
 def forecast_info_common(
@@ -50,7 +50,7 @@ def forecast_info_common(
         "market": discord_user.mention,
         "week of": ticker.week_of.strftime("%m/%d/%y"),
         "heat": forecast.heat,
-        "likely average": likely_average,
+        "likely average": f"{likely_average} {format_chance(most_likely.chance)}",
     }
 
     if has_any and current_period <= forecast.spikes.any.end:
