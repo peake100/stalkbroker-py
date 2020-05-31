@@ -42,8 +42,8 @@ def forecast_info_common(
     has_any = has_big or has_small
 
     likely_average_float = (
-        (most_likely.prices_future.max + most_likely.prices_future.guaranteed) / 2
-    )
+        most_likely.prices_future.max + most_likely.prices_future.guaranteed
+    ) / 2
     likely_average = int(round(likely_average_float, 0))
 
     info: Dict[str, Any] = {
