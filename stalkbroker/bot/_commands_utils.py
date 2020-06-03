@@ -80,6 +80,9 @@ async def user_change_bulletin_subscription(
 
     for guild_id in stalk_user.servers:
         guild: discord.Guild = STALKBROKER.get_guild(guild_id)
+        # This guild may no longer exist or the bot may have been kicked from it.
+        if guild is None:
+            continue
         change_role_coro = user_update_guild_roles(guild, stalk_user, discord_user)
         add_roles_coros.append(change_role_coro)
 
