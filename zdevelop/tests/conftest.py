@@ -29,7 +29,7 @@ def run_stalkbroker_in_thread(loop: asyncio.AbstractEventLoop):
 @pytest.fixture(scope="class")
 def event_loop():
     """The event loop to use for the test"""
-    loop = asyncio.new_event_loop()
+    loop = asyncio.get_event_loop()
     yield loop
     loop.close()
 
@@ -47,7 +47,7 @@ async def stalkbroker(
 
     bot.STALKBROKER.testing = True
 
-    asyncio.create_task(bot.STALKBROKER.start(os.environ["DISCORD_TOKEN_TEST"]))
+    event_loop.create_task(bot.STALKBROKER.start(os.environ["DISCORD_TOKEN_TEST"]))
 
     # Wait for the resources to spin up
     await bot.STALKBROKER.started.wait()
